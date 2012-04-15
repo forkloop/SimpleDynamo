@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical" >
+
+    <ScrollView
+    	android:id="@+id/display_container"
+    	android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:layout_above="@+id/fl1"
+    	android:layout_alignParentLeft="true"
+    	android:layout_alignParentRight="true"
+    	android:background="#FFF"
+    	android:layout_alignParentTop="true" >
+    	<RelativeLayout 
+    		android:id="@+id/msg_display"
+    		android:layout_width="match_parent"
+    		android:layout_height="wrap_content"
+    		>    		
+    	</RelativeLayout>
+    </ScrollView>
+    
+<LinearLayout
+	android:id="@+id/fl1"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_above="@+id/fl2" 
+	>
+    <Button
+    	android:id="@+id/put1"
+    	android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:layout_weight="1"
+    	android:text="Put1" />
+    
+    <Button
+    	android:id="@+id/put2"
+    	android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:layout_weight="1"
+    	android:text="Put2" />
+</LinearLayout>
+
+<LinearLayout
+	android:id="@+id/fl2"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_above="@+id/fl3" 
+	>
+    <Button
+    	android:id="@+id/put3"
+    	android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:layout_weight="1"
+    	android:text="Put3" />
+    
+    <Button
+    	android:id="@+id/get"
+    	android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:layout_weight="1"
+    	android:text="Get" />
+</LinearLayout>
+
+<LinearLayout
+	android:id="@+id/fl3"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_alignParentBottom="true" 
+	>
+    <Button
+    	android:id="@+id/dump"
+    	android:layout_width="match_parent"
+    	android:layout_height="wrap_content"
+    	android:text="Dump" />
+</LinearLayout>
+
+</RelativeLayout>
