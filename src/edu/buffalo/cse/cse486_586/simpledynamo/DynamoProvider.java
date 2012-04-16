@@ -45,6 +45,8 @@ public class DynamoProvider extends ContentProvider {
 	static Map<Integer, Map<String, String>> peerTmp;
 	static Map<String, Integer> putQ;
 	static Map<String, Integer> getQ;
+	static Map<String, Integer> tputQ;
+	static Map<String, Integer> tgetQ;
 	
 	private SocketChannel sc;
 	
@@ -102,10 +104,10 @@ public class DynamoProvider extends ContentProvider {
 		try {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
-			// XXX Quorum
 			if ( pid == id ) {
 				myTmp.put(key, (String) values.getAsString("provider_value"));
 				putQ.put(key, 1);
+				//XXX need block
 			}
 			else {
 				InsertMsg insMsg = new InsertMsg();
@@ -156,7 +158,8 @@ public class DynamoProvider extends ContentProvider {
 			else {
 				InquiryMsg inqMsg = new InquiryMsg();
 				inqMsg.key = key;
-				inqMsg.asker = id;
+				inqMsg.owner = pid;
+				inqMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(inqMsg);
 				sc = SimpleDynamoApp.outSocket.get(pid);
 				sc.write(ByteBuffer.wrap(msgByte));

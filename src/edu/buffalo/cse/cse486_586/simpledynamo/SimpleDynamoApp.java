@@ -28,6 +28,7 @@ public class SimpleDynamoApp extends Application {
 	static int myId;
 	static String myIdHash;
 	static int emulatorNum=5;
+	static int[] succId;
 	
 	static String genHash(String input) throws NoSuchAlgorithmException {
 
@@ -52,6 +53,13 @@ public class SimpleDynamoApp extends Application {
 			}
 		}
 		return nodeMap.get(key[0]);
+	}
+	
+	
+	static int[] getSuccessor(int id) {
+	
+		//XXX
+		return null;
 	}
 	
 	
