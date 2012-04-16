@@ -1,11 +1,15 @@
 package edu.buffalo.cse.cse486_586.simpledynamo;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 
 import android.app.Application;
@@ -38,4 +42,34 @@ public class SimpleDynamoApp extends Application {
 		return formatter.toString();
 		}
 
+	static int checkRange( String s ) {
+		
+		// XXX keySet sorted ?
+		String[] key = (String[]) nodeMap.keySet().toArray();
+		for ( int i=0; i<nodeMap.size(); i++ ) {
+			if ( s.compareTo(key[i])<=0 ) {
+				return nodeMap.get(key[i]);
+			}
+		}
+		return nodeMap.get(key[0]);
+	}
+	
+	
+	static byte[] getMsgStream(Object msg) {
+		
+		byte[] bytes = null;
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		try {
+			ObjectOutputStream oos = new ObjectOutputStream(bos);
+			oos.writeObject(msg);
+			oos.flush();
+			oos.close();
+			bos.close();
+			bytes = bos.toByteArray();			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return bytes;		
+	}
+	
 }

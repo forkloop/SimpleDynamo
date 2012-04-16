@@ -14,12 +14,13 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+
 import android.app.IntentService;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
-import android.net.Uri;
 import android.util.Log;
 
 /**
@@ -30,7 +31,8 @@ public class ListenService extends IntentService {
 
 	private ServerSocket inSocket;
 	private ServerSocketChannel channel;
-
+	private int myId;
+	
 
 	public ListenService() {
 		super("ListenService");
@@ -68,7 +70,7 @@ public class ListenService extends IntentService {
 			e.printStackTrace();
 		}
 		
-		
+		myId = SimpleDynamoApp.myId;
 		
 		try{
 			int port = intent.getIntExtra("myPort", 10000);
@@ -111,69 +113,89 @@ public class ListenService extends IntentService {
 							ByteBuffer bb = ByteBuffer.allocate(1000);	// Hope this is enough...
 							sc.read(bb);
 							byte[] bt = bb.array();							
-							try {
-								ByteArrayInputStream bis = new ByteArrayInputStream(bt);
-								ObjectInputStream ois = new ObjectInputStream(bis);
-								msg = ois.readObject();
-								String msg_type = msg.getClass().getName();
-								Log.i("log", "Receive a " + msg_type);
+							ByteArrayInputStream bis = new ByteArrayInputStream(bt);
+							ObjectInputStream ois = new ObjectInputStream(bis);
+							msg = ois.readObject();
+							String msg_type = msg.getClass().getName();
+							Log.i("log", "Receive a " + msg_type);
+							
+							
+							if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.InsertMsg")) {
 								
-								
-								if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledht.InsertMsg")) {
+								InsertMsg insMsg = (InsertMsg) msg;
+								if ( insMsg.owner == myId ) {
+									DynamoProvider.myTmp.put(insMsg.key, insMsg.value);
+									DynamoProvider.putQ.put(insMsg.key, 1);
+									//XXX ack that I am not dead
 									
-									InsertMsg insMsg = (InsertMsg) msg;
-									if ( checkRange(insMsg.keyHash) ) {
-										ContentValues inserted = new ContentValues();
-										inserted.put("provider_key", insMsg.key);
-										inserted.put("provider_value", insMsg.value);
-										Uri uri = getApplicationContext().getContentResolver().insert(TABLE_URI, inserted);
-										Log.i("log", "Inserting a new message: " + uri.toString());
-										//FIXME Send back a msg
-									}
-									else {
-										Intent sendIntent = new Intent(this, SendService.class);
-										sendIntent.putExtra("key", insMsg.key);
-										sendIntent.putExtra("value", insMsg.value);
-										sendIntent.putExtra("keyHash", insMsg.keyHash);
-										sendIntent.putExtra("type", 1);
-										startService(sendIntent);
-									}
+									//XXX ask for quorum
 								}
+								else {
+									Map<String, String>t = new HashMap<String, String>();
+									t.put(insMsg.key, insMsg.value);
+									DynamoProvider.peerTmp.put(insMsg.owner, t);
+									//XXX reply ack
+								}
+							}
 
-								else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledht.InquiryMsg")) {
-									
-									InquiryMsg inqMsg = (InquiryMsg) msg;
-									if ( checkRange(inqMsg.keyHash) ) {
-										//FIXME OR query the contentprovider and sendback via UDP
-										Cursor c = getApplicationContext().getContentResolver().query(TABLE_URI, 
-												null, inqMsg.key, null, null);
-										c.moveToFirst();
-										Intent repIntent = new Intent(this, SendService.class);
-										repIntent.putExtra("key", c.getString(0));
-										repIntent.putExtra("value", c.getString(1));
-										repIntent.putExtra("sender", inqMsg.sender);
-										repIntent.putExtra("type", 3);
-										startService(repIntent);
-									}
-									else {
-										Intent inqIntent = new Intent(this, SendService.class);
-										inqIntent.putExtra("type", 2);
-										inqIntent.putExtra("key", inqMsg.key);
-										inqIntent.putExtra("keyHash", inqMsg.keyHash);
-										inqIntent.putExtra("sender", inqMsg.sender);
-										startService(inqIntent);
-									}
-								}
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.InquiryMsg")) {
 								
-								else if ( msg_type.equals("edu.buffalo.cse.cse486_586.simpledht.ReplyMsg") ) {
-									Log.i("log", "RECEIVE a reply message: " + ((ReplyMsg)msg).key + " : " + ((ReplyMsg)msg).value);
-									synchronized(DHTProvider.lock) {
-										DHTProvider.rm = (ReplyMsg) msg;
-										DHTProvider.lock.notify();
+								InquiryMsg inqMsg = (InquiryMsg) msg;
+								if ( inqMsg.owner == myId ) {
+									DynamoProvider.getQ.put(inqMsg.key, 1);
+									//XXX ask for quorum
+								}
+								else {
+									//XXX what if the coordinator is dead?
+								}
+							}
+							
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ReplyMsg")) {
+								
+								Log.i("log", "RECEIVE a reply message: " + ((ReplyMsg)msg).key + " : " + ((ReplyMsg)msg).value);
+								synchronized(DynamoProvider.lock) {
+									DynamoProvider.rm = (ReplyMsg) msg;
+									DynamoProvider.lock.notify();
+								}
+							}
+							
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.AckMsg")) {
+								
+								// The coordinator is not dead yet
+								synchronized(DynamoProvider.lock) {
+									DynamoProvider.flag = true;
+								}
+							}
+							
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
+								
+								QuorumMsg quoMsg = (QuorumMsg) msg;
+								if ( quoMsg.type == 'p' ) {
+									if ( DynamoProvider.putQ.get(quoMsg.key) != null ) {
+										int n = DynamoProvider.putQ.get(quoMsg.key);
+										if ( n+1 >= SimpleDynamoApp.W ) {
+											DynamoProvider.myData.put(quoMsg.key, DynamoProvider.myTmp.get(quoMsg.key));
+											DynamoProvider.myTmp.remove(quoMsg.key);
+											DynamoProvider.putQ.remove(quoMsg.key);
+											//XXX
+										}
+										else {
+											DynamoProvider.putQ.put(quoMsg.key, n+1);
+										}
 									}
 								}
-							} catch (ClassNotFoundException e) {
-								e.printStackTrace();
+								else {
+									if ( DynamoProvider.getQ.get(quoMsg.key) != null ) {
+										int n = DynamoProvider.getQ.get(quoMsg.key);
+										if ( n+1 >= SimpleDynamoApp.R ) {
+											DynamoProvider.getQ.remove(quoMsg.key);
+											//XXX
+										}
+										else {
+											DynamoProvider.getQ.put(quoMsg.key, n+1);
+										}
+									}
+								}
 							}
 						}
 						iter.remove();
@@ -182,8 +204,11 @@ public class ListenService extends IntentService {
 			}
 		} catch(IOException e){
 			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
 		}		
-
 	}
 	
 	
