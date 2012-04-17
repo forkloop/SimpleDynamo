@@ -177,19 +177,24 @@ public class ListenService extends IntentService {
 									DynamoProvider.tgetQ.put(inqMsg.key, 1);
 								}
 								/* ask for quora */
-								Intent repIntent = new Intent(this, SendService.class);
-								repIntent.putExtra("key", inqMsg.key);
-								repIntent.putExtra("action", 'g');
-								repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-								repIntent.putExtra("asker", inqMsg.sender);
-								startService(repIntent);
+								int[] succ = SimpleDynamoApp.getSuccessor(inqMsg.owner);
+								for ( int x=0; x<succ.length; x++ ) {
+									Intent repIntent = new Intent(this, SendService.class);
+									repIntent.putExtra("key", inqMsg.key);
+									repIntent.putExtra("action", 'g');
+									repIntent.putExtra("sender", succ[x]);
+									repIntent.putExtra("owner", inqMsg.owner);
+									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+									repIntent.putExtra("asker", inqMsg.sender);
+									startService(repIntent);
+								}
 							}
 							
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.AckMsg")) {
 								
 								//XXX Reply the inquiry or insert 
 								synchronized(DynamoProvider.lock) {
-									DynamoProvider.flag = true;
+									DynamoProvider.rm = (AckMsg) msg;
 									DynamoProvider.lock.notify();
 								}
 							}
@@ -206,6 +211,7 @@ public class ListenService extends IntentService {
 									quoIntent.putExtra("sender", repMsg.sender);
 									quoIntent.putExtra("action", 'p');
 									quoIntent.putExtra("key", repMsg.key);
+									quoIntent.putExtra("owner", repMsg.owner);
 									quoIntent.putExtra("type", SimpleDynamoApp.QUO_MSG);
 									startService(quoIntent);
 								}
@@ -215,7 +221,9 @@ public class ListenService extends IntentService {
 									quoIntent.putExtra("sender", repMsg.sender);
 									quoIntent.putExtra("action", 'g');
 									quoIntent.putExtra("key", repMsg.key);
+									quoIntent.putExtra("owner", repMsg.owner);
 									quoIntent.putExtra("type", SimpleDynamoApp.QUO_MSG);
+									quoIntent.putExtra("asker", repMsg.asker);
 									startService(quoIntent);
 								}
 							}
@@ -280,6 +288,7 @@ public class ListenService extends IntentService {
 										}
 									}
 								}
+								/* inquiry */
 								else {
 									//XXX take care of ``sender'' and ``asker''
 									if ( quoMsg.owner == myId ) {
@@ -288,17 +297,20 @@ public class ListenService extends IntentService {
 											if ( n+1 >= SimpleDynamoApp.R ) {
 												DynamoProvider.getQ.remove(quoMsg.key);
 												/* reply inquiry */
-												
-												synchronized (DynamoProvider.lock) {
-													//FIXME
-													DynamoProvider.lock.notify();
+												if ( quoMsg.asker == myId ) {
+													synchronized (DynamoProvider.lock) {
+													//	DynamoProvider.flag = true;
+														DynamoProvider.lock.notify();
+													}
 												}
-//												Intent ackIntent = new Intent(this, SendService.class);
-//												ackIntent.putExtra("key", quoMsg.key);
-//												ackIntent.putExtra("sender", quoMsg.sender);
-//												ackIntent.putExtra("value", DynamoProvider.myData.get(quoMsg.key));
-//												ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
-//												startService(ackIntent);
+												else {
+													Intent ackIntent = new Intent(this, SendService.class);
+													ackIntent.putExtra("key", quoMsg.key);
+													ackIntent.putExtra("value", DynamoProvider.myData.get(quoMsg.key));
+													ackIntent.putExtra("sender", quoMsg.asker);
+													ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
+													startService(ackIntent);
+												}
 											}
 											else {
 												DynamoProvider.getQ.put(quoMsg.key, n+1);
@@ -310,13 +322,21 @@ public class ListenService extends IntentService {
 											int n = DynamoProvider.tgetQ.get(quoMsg.key);
 											if ( n+1 >= SimpleDynamoApp.R ) {
 												DynamoProvider.tgetQ.remove(quoMsg.key);
+												
+												if ( quoMsg.asker == myId ) {
+													synchronized (DynamoProvider.lock) {
+														DynamoProvider.lock.notify();
+													}
+												}
+												else {
 												/* reply inquiry */
-												Intent ackIntent = new Intent(this, SendService.class);
-												ackIntent.putExtra("key", quoMsg.key);
-												ackIntent.putExtra("sender", quoMsg.sender);
-												ackIntent.putExtra("value", DynamoProvider.peerData.get(quoMsg.owner).get(quoMsg.key));
-												ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
-												startService(ackIntent);
+													Intent ackIntent = new Intent(this, SendService.class);
+													ackIntent.putExtra("key", quoMsg.key);
+													ackIntent.putExtra("sender", quoMsg.asker);
+													ackIntent.putExtra("value", DynamoProvider.peerData.get(quoMsg.owner).get(quoMsg.key));
+													ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
+													startService(ackIntent);
+												}
 											}
 											else {
 												DynamoProvider.tgetQ.put(quoMsg.key, n+1);

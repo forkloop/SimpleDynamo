@@ -53,6 +53,7 @@ class ReplicateMsg implements Serializable {
 	String value;
 	int owner;
 	int sender;
+	int asker;
 	char type;
 }
 
@@ -67,6 +68,7 @@ class QuorumMsg implements Serializable {
 	char type;		/* g or p */
 	int owner;
 	int sender;
+	int asker;
 	
 }
 

@@ -50,6 +50,8 @@ public class SendService extends IntentService {
 			quoMsg.key = intent.getStringExtra("key");
 			quoMsg.type = intent.getCharExtra("action", 'g');
 			quoMsg.sender = SimpleDynamoApp.myId;
+			quoMsg.owner = intent.getIntExtra("owner", -1);
+			quoMsg.asker = intent.getIntExtra("asker", -1);
 			msgByte = SimpleDynamoApp.getMsgStream(quoMsg);
 			break;
 		
@@ -77,6 +79,7 @@ public class SendService extends IntentService {
 			repMsg.owner = intent.getIntExtra("owner", -1);
 			repMsg.sender = SimpleDynamoApp.myId;
 			repMsg.type = intent.getCharExtra("action", 'g');
+			repMsg.asker = intent.getIntExtra("asker", -1);
 			msgByte = SimpleDynamoApp.getMsgStream(repMsg);
 			break;
 			

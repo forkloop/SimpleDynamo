@@ -26,7 +26,7 @@ public class DynamoProvider extends ContentProvider {
 	static Boolean lock;
 	private int id, pid;
 	static boolean flag;
-	static ReplyMsg rm;
+	static AckMsg rm;
 	
 	private static final String[] SCHEMA = {"provider_key", "provider_value"};
 	private static final String DBNAME = "dynamo";
@@ -84,9 +84,11 @@ public class DynamoProvider extends ContentProvider {
 		peerData = new HashMap<Integer, Map<String, String>>();
 		putQ = new HashMap<String, Integer>();
 		getQ = new HashMap<String, Integer>();
-		for ( int n=0; n<SimpleDynamoApp.N-1; n++ ) {
-			//XXX
-		}
+		tputQ = new HashMap<String, Integer>();
+		tgetQ = new HashMap<String, Integer>();
+		myTmp = new HashMap<String, String>();
+		peerTmp = new HashMap<Integer, Map<String, String>>();
+
 		Intent intent = new Intent(getContext().getApplicationContext(), ListenService.class);
 		intent.putExtra("myPort", 10000);
 		getContext().getApplicationContext().startService(intent);
@@ -100,7 +102,7 @@ public class DynamoProvider extends ContentProvider {
 	
 		//FIXME NO URI check !!!
 		String key = (String) values.get("provider_key");
-		Log.i("log", "provider_key:" + key);
+		Log.i("log", "Insert provider_key:" + key);
 		String keyHash;
 		try {
 			keyHash = SimpleDynamoApp.genHash(key);
@@ -116,6 +118,7 @@ public class DynamoProvider extends ContentProvider {
 					repIntent.putExtra("value", (String) values.get("provider_value"));
 					/* ``sender" is actually receiver HECK */
 					repIntent.putExtra("sender", succ[x]);
+					repIntent.putExtra("owner", pid);
 					repIntent.putExtra("action", 'p');
 					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 					getContext().getApplicationContext().startService(repIntent);
@@ -175,16 +178,19 @@ public class DynamoProvider extends ContentProvider {
 				tgetQ.put(key, 1);
 				/* Replicate inquiry */
 				for ( int x=0; x<succ.length; x++) {
-					Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
-					repIntent.putExtra("key", key);
-					/* ``sender" is actually receiver HECK */
-					repIntent.putExtra("sender", succ[x]);
-					repIntent.putExtra("action", 'g');
-					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-					getContext().getApplicationContext().startService(repIntent);
+					ReplicateMsg repMsg = new ReplicateMsg();
+					repMsg.key = key;
+					repMsg.type = 'g';
+					repMsg.sender = id;
+					repMsg.owner = pid;
+					repMsg.asker = id;
+					byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
+					sc = SimpleDynamoApp.outSocket.get(succ[x]);
+					sc.write(ByteBuffer.wrap(msgByte));
 				}
 				
 				synchronized(lock) {
+					//FIXME
 					lock.wait();
 				
 					MatrixCursor mc = new MatrixCursor(SCHEMA);
@@ -213,18 +219,31 @@ public class DynamoProvider extends ContentProvider {
 						rm = null;
 						return mc;
 					}
+					/*coordinator is dead, ask its first successor */
 					else {
-						/*coordinator is dead, ask its first successor */
-						sc = SimpleDynamoApp.outSocket.get(succ[0]);
-						sc.write(ByteBuffer.wrap(msgByte));
-						lock.wait();
-						if ( rm != null) {
-							MatrixCursor mc = new MatrixCursor(SCHEMA);
-							String[] v = {rm.key, rm.value};
-							mc.addRow(v);
-							mc.setNotificationUri(getContext().getContentResolver(), uri);
-							rm = null;
-							return mc;
+						/* I am the first successor */
+						if ( succ[0] == id ) {
+							synchronized (lock) {
+								lock.wait();
+								MatrixCursor mc = new MatrixCursor(SCHEMA);
+								String[] v = {key, peerData.get(pid).get(key)};
+								mc.addRow(v);
+								mc.setNotificationUri(getContext().getContentResolver(), uri);
+								return mc;
+							}
+						}
+						else {
+							sc = SimpleDynamoApp.outSocket.get(succ[0]);
+							sc.write(ByteBuffer.wrap(msgByte));
+							lock.wait();
+							if ( rm != null) {
+								MatrixCursor mc = new MatrixCursor(SCHEMA);
+								String[] v = {rm.key, rm.value};
+								mc.addRow(v);
+								mc.setNotificationUri(getContext().getContentResolver(), uri);
+								rm = null;
+								return mc;
+							}
 						}
 					}
 				}
