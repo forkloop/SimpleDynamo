@@ -11,7 +11,6 @@ import java.util.Formatter;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-
 import android.app.Application;
 import android.net.Uri;
 import android.util.Log;
@@ -29,6 +28,15 @@ public class SimpleDynamoApp extends Application {
 	static String myIdHash;
 	static int emulatorNum=5;
 	static int[] succId;
+
+	static	final int INS_MSG = 1;
+	static	final int INQ_MSG = 2;
+	static	final int QUO_MSG = 3;
+	static	final int ACK_MSG = 4;
+	static	final int REP_MSG = 5;
+	static	final int CON_MSG = 6;
+	static	final int REC_MSG = 7;
+//	static enum MsgType { INS_MSG, INQ_MSG, QUO_MSG, ACK_MSG, REP_MSG, CON_MSG, REC_MSG };
 	
 	static String genHash(String input) throws NoSuchAlgorithmException {
 

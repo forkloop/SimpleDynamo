@@ -87,6 +87,21 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 			Log.i("log", "Test Two...");
 			Test2();
 			break;
+		
+		case R.id.put3:
+			Log.i("log", "Test Three...");
+			Test3();
+			break;
+		
+		case R.id.get:
+			Log.i("log", "Test Four...");
+			Test4();
+			break;
+			
+		case R.id.dump:
+			Log.i("log", "Test Five...");
+			Test5();
+			break;
 		}	
 	}
 
@@ -101,16 +116,43 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 		}
 	}
 
-	
-	public void Test1() {
+	/**
+	 * Test1() to Test3() are just insert
+	 */
+	private void Test1() {
 		
-//		Intent intent = new Intent(this, TestOne.class);
-//		startService(intent);
+		Intent intent = new Intent(this, TestOne.class);
+		intent.putExtra("magic", 1);
+		startService(intent);
+	}
+
+	
+	private void Test2() {
+		
+		Intent intent = new Intent(this, TestOne.class);
+		intent.putExtra("magic", 2);
+		startService(intent);
+	}
+
+	
+	private void Test3() {
+		
+		Intent intent = new Intent(this, TestOne.class);
+		intent.putExtra("magic", 3);
+		startService(intent);
+	}
+
+	/**
+	 * Query()
+	 */
+	private void Test4() {
 		
 	}
 
-	// DUMP
-	public void Test2() {
+	/**
+	 * Dump
+	 */
+	private void Test5() {
 		
 		String[] args = {"only"};
 		int testNum = 10;

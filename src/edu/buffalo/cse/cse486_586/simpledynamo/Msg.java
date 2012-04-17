@@ -2,6 +2,7 @@ package edu.buffalo.cse.cse486_586.simpledynamo;
 
 import java.io.Serializable;
 
+
 /**
  * @author forkloop
  *
@@ -52,7 +53,7 @@ class ReplicateMsg implements Serializable {
 	String value;
 	int owner;
 	int sender;
-	char action;
+	char type;
 }
 
 
@@ -77,7 +78,7 @@ class ConfirmMsg implements Serializable {
 	 */
 	private static final long serialVersionUID = 7105857416483104284L;
 	String key;
-	int sender;
+	int owner;
 }
 
 
@@ -88,4 +89,5 @@ class AckMsg implements Serializable {
 	 */
 	private static final long serialVersionUID = -5072522664179893523L;
 	String key;
+	String value;
 }

@@ -104,26 +104,47 @@ public class DynamoProvider extends ContentProvider {
 		try {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
+			int[] succ = SimpleDynamoApp.getSuccessor(pid);
 			if ( pid == id ) {
-				myTmp.put(key, (String) values.getAsString("provider_value"));
+				myTmp.put(key, (String) values.get("provider_value"));
 				putQ.put(key, 1);
-				//XXX need block
+				/* Replicate insert */
+				for ( int x=0; x<succ.length; x++) {
+					Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
+					repIntent.putExtra("key", key);
+					repIntent.putExtra("value", (String) values.get("provider_value"));
+					/* ``sender" is actually receiver HECK */
+					repIntent.putExtra("sender", succ[x]);
+					repIntent.putExtra("action", 'p');
+					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+					getContext().getApplicationContext().startService(repIntent);
+				}
+				//FIXME  should block ?
+//				synchronized (lock) {
+//					
+//				}
+				
 			}
 			else {
 				InsertMsg insMsg = new InsertMsg();
 				insMsg.key = (String) values.get("provider_key");
 				insMsg.value = (String) values.get("provider_value");
 				insMsg.owner = pid;
+				insMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(insMsg);
 				sc = SimpleDynamoApp.outSocket.get(pid);
 				sc.write(ByteBuffer.wrap(msgByte));
 
 				synchronized (lock) {
-					lock.wait(100);
+					lock.wait(500);
+					
+					/* coordinator dead, send to its FIRST successor */
 					if ( !flag ) {
-						// XXX coordinator dead, send to its successor
+						sc = SimpleDynamoApp.outSocket.get(succ[0]);
+						sc.write(ByteBuffer.wrap(msgByte));
 					}
 				}
+				//FIXME should block?
 			}
 		} catch(NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -134,6 +155,7 @@ public class DynamoProvider extends ContentProvider {
 		}
 		return null;
 	}
+	
 	
 	
 	@Override
@@ -147,13 +169,29 @@ public class DynamoProvider extends ContentProvider {
 		try {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
+			int[] succ = SimpleDynamoApp.getSuccessor(pid);
 			if ( pid == id ) {
-				getQ.put(key, 1);
-				MatrixCursor mc = new MatrixCursor(SCHEMA);
-				String[] v = {key, myData.get(key)};
-				mc.addRow(v);
-				mc.setNotificationUri(getContext().getContentResolver(), uri);
-				return mc;
+				tgetQ.put(key, 1);
+				/* Replicate inquiry */
+				for ( int x=0; x<succ.length; x++) {
+					Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
+					repIntent.putExtra("key", key);
+					/* ``sender" is actually receiver HECK */
+					repIntent.putExtra("sender", succ[x]);
+					repIntent.putExtra("action", 'g');
+					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+					getContext().getApplicationContext().startService(repIntent);
+				}
+				
+				synchronized(lock) {
+					lock.wait();
+				
+					MatrixCursor mc = new MatrixCursor(SCHEMA);
+					String[] v = {key, myData.get(key)};
+					mc.addRow(v);
+					mc.setNotificationUri(getContext().getContentResolver(), uri);
+					return mc;
+				}
 			}
 			else {
 				InquiryMsg inqMsg = new InquiryMsg();
@@ -165,17 +203,29 @@ public class DynamoProvider extends ContentProvider {
 				sc.write(ByteBuffer.wrap(msgByte));
 				
 				synchronized (lock) {
-						lock.wait(100);
-						if ( rm != null ) {
+					lock.wait(500);
+					if ( rm != null ) {
+						MatrixCursor mc = new MatrixCursor(SCHEMA);
+						String[] v = {rm.key, rm.value};
+						mc.addRow(v);
+						mc.setNotificationUri(getContext().getContentResolver(), uri);
+						rm = null;
+						return mc;
+					}
+					else {
+						/*coordinator is dead, ask its first successor */
+						sc = SimpleDynamoApp.outSocket.get(succ[0]);
+						sc.write(ByteBuffer.wrap(msgByte));
+						lock.wait();
+						if ( rm != null) {
 							MatrixCursor mc = new MatrixCursor(SCHEMA);
 							String[] v = {rm.key, rm.value};
 							mc.addRow(v);
 							mc.setNotificationUri(getContext().getContentResolver(), uri);
+							rm = null;
 							return mc;
 						}
-						else {
-							//XXX the coordinator is dead, ask its successor
-						}
+					}
 				}
 			}
 		} catch (NoSuchAlgorithmException e) {
@@ -187,6 +237,7 @@ public class DynamoProvider extends ContentProvider {
 		}
 		return null;
 	}
+	
 	
 	
 	@Override

@@ -30,6 +30,14 @@
 			android:name=".SendService" >
 		</service>
 		
+		<service
+			android:name=".TestOne" >
+		</service>
+		
+		<service
+			android:name=".TestTwo" >
+		</service>
+		
 		<provider
 			android:name=".DynamoProvider" 
 			android:authorities="edu.buffalo.cse.cse486_586.simpledynamo.provider" >

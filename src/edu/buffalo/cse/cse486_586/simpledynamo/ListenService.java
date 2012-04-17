@@ -19,7 +19,6 @@ import java.util.Iterator;
 import java.util.Map;
 import android.app.IntentService;
 import android.content.Intent;
-import android.database.Cursor;
 import android.util.Log;
 
 /**
@@ -47,6 +46,7 @@ public class ListenService extends IntentService {
 		}
 	}
 
+	
 	@Override
 	protected void onHandleIntent(Intent intent) {
 
@@ -131,12 +131,14 @@ public class ListenService extends IntentService {
 									ackIntent.putExtra("key", insMsg.key);
 									ackIntent.putExtra("value", insMsg.value);
 									ackIntent.putExtra("sender", insMsg.sender);
+									ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
 									startService(ackIntent);
 									/* replicate */
 									Intent repIntent = new Intent(this, SendService.class);
 									repIntent.putExtra("key", insMsg.key);
 									repIntent.putExtra("value", insMsg.value);
 									repIntent.putExtra("action", 'p');
+									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 									startService(repIntent);
 								}
 								else {
@@ -148,12 +150,14 @@ public class ListenService extends IntentService {
 									Intent ackIntent = new Intent(this, SendService.class);
 									ackIntent.putExtra("key", insMsg.key);
 									ackIntent.putExtra("sender", insMsg.sender);
+									ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
 									startService(ackIntent);
 									/* replicate */
 									Intent repIntent = new Intent(this, SendService.class);
 									repIntent.putExtra("key", insMsg.key);
 									repIntent.putExtra("value", insMsg.value);
 									repIntent.putExtra("action", 'p');
+									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 									startService(repIntent);
 								}
 							}
@@ -167,6 +171,7 @@ public class ListenService extends IntentService {
 									Intent repIntent = new Intent(this, SendService.class);
 									repIntent.putExtra("key", inqMsg.key);
 									repIntent.putExtra("action", 'g');
+									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 									startService(repIntent);
 								}
 								else {
@@ -174,6 +179,7 @@ public class ListenService extends IntentService {
 									Intent repIntent = new Intent(this, SendService.class);
 									repIntent.putExtra("key", inqMsg.key);
 									repIntent.putExtra("action", 'g');
+									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 									startService(repIntent);
 								}
 							}
@@ -199,7 +205,7 @@ public class ListenService extends IntentService {
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ReplicateMsg")) {
 								
 								ReplicateMsg repMsg = (ReplicateMsg) msg;
-								if ( repMsg.action == 'p' ) {
+								if ( repMsg.type == 'p' ) {
 									Map<String, String> t = new HashMap<String, String>();
 									t.put(repMsg.key, repMsg.value);
 									DynamoProvider.peerTmp.put(repMsg.owner, t);
@@ -208,6 +214,7 @@ public class ListenService extends IntentService {
 									quoIntent.putExtra("sender", repMsg.sender);
 									quoIntent.putExtra("action", 'p');
 									quoIntent.putExtra("key", repMsg.key);
+									quoIntent.putExtra("type", SimpleDynamoApp.QUO_MSG);
 									startService(quoIntent);
 								}
 								else {
@@ -216,6 +223,7 @@ public class ListenService extends IntentService {
 									quoIntent.putExtra("sender", repMsg.sender);
 									quoIntent.putExtra("action", 'g');
 									quoIntent.putExtra("key", repMsg.key);
+									quoIntent.putExtra("type", SimpleDynamoApp.QUO_MSG);
 									startService(quoIntent);
 								}
 							}
@@ -223,9 +231,9 @@ public class ListenService extends IntentService {
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConfirmMsg")) {
 								
 								ConfirmMsg conMsg = new ConfirmMsg();
-								DynamoProvider.peerData.get(conMsg.sender).put(conMsg.key, 
-										DynamoProvider.peerTmp.get(conMsg.sender).get(conMsg.key));
-								DynamoProvider.peerTmp.get(conMsg.sender).remove(conMsg.key);
+								DynamoProvider.peerData.get(conMsg.owner).put(conMsg.key, 
+										DynamoProvider.peerTmp.get(conMsg.owner).get(conMsg.key));
+								DynamoProvider.peerTmp.get(conMsg.owner).remove(conMsg.key);
 							}
 							
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
@@ -245,6 +253,7 @@ public class ListenService extends IntentService {
 													Intent conIntent = new Intent(this, SendService.class);
 													conIntent.putExtra("sender", succ[x]);
 													conIntent.putExtra("key", quoMsg.key);
+													conIntent.putExtra("type", SimpleDynamoApp.CON_MSG);
 													startService(conIntent);
 												}
 											}
@@ -268,10 +277,10 @@ public class ListenService extends IntentService {
 														Intent conIntent = new Intent(this, SendService.class);
 														conIntent.putExtra("sender", succ[x]);
 														conIntent.putExtra("key", quoMsg.key);
+														conIntent.putExtra("type", SimpleDynamoApp.CON_MSG);
 														startService(conIntent);
 													}
 												}
-
 											}
 											else {
 												DynamoProvider.tputQ.put(quoMsg.key, n+1);
@@ -291,6 +300,7 @@ public class ListenService extends IntentService {
 												ackIntent.putExtra("key", quoMsg.key);
 												ackIntent.putExtra("sender", quoMsg.sender);
 												ackIntent.putExtra("value", DynamoProvider.myData.get(quoMsg.key));
+												ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
 												startService(ackIntent);
 											}
 											else {
@@ -308,6 +318,7 @@ public class ListenService extends IntentService {
 												ackIntent.putExtra("key", quoMsg.key);
 												ackIntent.putExtra("sender", quoMsg.sender);
 												ackIntent.putExtra("value", DynamoProvider.peerData.get(quoMsg.owner).get(quoMsg.key));
+												ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
 												startService(ackIntent);
 											}
 											else {
