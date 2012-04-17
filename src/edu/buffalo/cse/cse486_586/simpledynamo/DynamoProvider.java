@@ -4,10 +4,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
-
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -77,13 +77,14 @@ public class DynamoProvider extends ContentProvider {
 		SimpleDynamoApp.outSocket = new HashMap<Integer, SocketChannel>();
 		SimpleDynamoApp.nodeMap = new TreeMap<String, Integer>();
 		SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.myIdHash, SimpleDynamoApp.myId);
+		SimpleDynamoApp.succId = new ArrayList<Integer>();
 		lock = new Boolean(true);
 
 		myData = new HashMap<String, String>();
 		peerData = new HashMap<Integer, Map<String, String>>();
 		putQ = new HashMap<String, Integer>();
 		getQ = new HashMap<String, Integer>();
-		for ( int n=0; n<SimpleDynamoApp.N-1; n++ ){
+		for ( int n=0; n<SimpleDynamoApp.N-1; n++ ) {
 			//XXX
 		}
 		Intent intent = new Intent(getContext().getApplicationContext(), ListenService.class);
@@ -97,7 +98,7 @@ public class DynamoProvider extends ContentProvider {
 	@Override
 	public Uri insert(Uri uri, ContentValues values) {
 	
-		//XXX no URI check !!!
+		//FIXME NO URI check !!!
 		String key = (String) values.get("provider_key");
 		Log.i("log", "provider_key:" + key);
 		String keyHash;
@@ -123,7 +124,6 @@ public class DynamoProvider extends ContentProvider {
 //				synchronized (lock) {
 //					
 //				}
-				
 			}
 			else {
 				InsertMsg insMsg = new InsertMsg();
@@ -136,6 +136,7 @@ public class DynamoProvider extends ContentProvider {
 				sc.write(ByteBuffer.wrap(msgByte));
 
 				synchronized (lock) {
+					/* wait for ack */
 					lock.wait(500);
 					
 					/* coordinator dead, send to its FIRST successor */

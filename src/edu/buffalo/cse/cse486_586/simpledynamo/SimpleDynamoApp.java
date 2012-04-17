@@ -8,9 +8,10 @@ import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
+
 import android.app.Application;
 import android.net.Uri;
 import android.util.Log;
@@ -23,12 +24,13 @@ public class SimpleDynamoApp extends Application {
 	static final int W = 2;
 	static Map<Integer, SocketChannel> outSocket;
 	static SortedMap<String, Integer> nodeMap;
+	static Map<Integer, String> nodeHash;
 	static Selector selector;
 	static int myId;
 	static String myIdHash;
 	static int emulatorNum=5;
-	static int[] succId;
-
+	static List<Integer> succId;
+	
 	static	final int INS_MSG = 1;
 	static	final int INQ_MSG = 2;
 	static	final int QUO_MSG = 3;
@@ -53,7 +55,7 @@ public class SimpleDynamoApp extends Application {
 
 	static int checkRange( String s ) {
 		
-		// XXX keySet sorted ?
+		//XXX is keySet sorted???
 		String[] key = (String[]) nodeMap.keySet().toArray();
 		for ( int i=0; i<nodeMap.size(); i++ ) {
 			if ( s.compareTo(key[i])<=0 ) {
@@ -66,8 +68,10 @@ public class SimpleDynamoApp extends Application {
 	
 	static int[] getSuccessor(int id) {
 	
-		//XXX
-		return null;
+		/* succId updated by ListenService */
+		int idx = succId.indexOf(id);
+		int[] ret = {succId.get((idx+1)%succId.size()), succId.get((idx+2)%succId.size())};
+		return ret;
 	}
 	
 	
