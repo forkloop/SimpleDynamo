@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import android.content.ContentProvider;
@@ -166,6 +167,34 @@ public class DynamoProvider extends ContentProvider {
 	public Cursor query(Uri uri, String[] projection, String selection,
 			String[] selectionArgs, String sortOrder) {
 
+		/* dump */
+		if ( selectionArgs[0].equals("dump") ) {
+			MatrixCursor mc = new MatrixCursor(SCHEMA);
+			db = dbHelper.getWritableDatabase();
+			Set<String> myKeys = myData.keySet();
+			for ( String s : myKeys ) {
+				String[] v = {s, myData.get(s)};
+				mc.addRow(v);
+				ContentValues inserted = new ContentValues();
+				inserted.put("provider_key", v[0]);
+				inserted.put("provider_value",v[1]);
+				db.insert(MSG_TABLE_NAME, null, inserted);
+			}
+			Set<Integer> succ = peerData.keySet();
+			for ( int x : succ ) {
+				Map<String, String> data = peerData.get(x);
+				Set<String> peerKeys = data.keySet();
+				for ( String s : peerKeys ) {
+					String[] v = {s, data.get(s)};
+					mc.addRow(v);
+					ContentValues inserted = new ContentValues();
+					inserted.put("provider_key", v[0]);
+					inserted.put("provider_value",v[1]);
+					db.insert(MSG_TABLE_NAME, null, inserted);
+				}
+			}
+		}
+		
 		String key = selection;
 		Log.i("log", "KEY: "+key);
 		String keyHash;

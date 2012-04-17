@@ -154,12 +154,10 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 	 */
 	private void Test5() {
 		
-		String[] args = {"only"};
-		int testNum = 10;
-		for (int i=0; i< testNum; i++) {
-			Cursor c = getApplicationContext().getContentResolver().query(TABLE_URI, null, ""+i, args, null);
-			if ( c.getCount() != 0 ) {
-				c.moveToFirst();
+		String[] args = {"dump"};
+		Cursor c = getApplicationContext().getContentResolver().query(TABLE_URI, null, null, args, null);
+		if(c.getCount() > 0 ) {
+			while(c.moveToNext()) {
 				String msg = c.getString(0) + " : " + c.getString(1);
 				displayMsg(msg);
 			}
