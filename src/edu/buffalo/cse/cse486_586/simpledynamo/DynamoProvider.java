@@ -212,10 +212,12 @@ public class DynamoProvider extends ContentProvider {
 					db.insert(MSG_TABLE_NAME, null, inserted);
 				}
 			}
+			return mc;
 		}
 		
+		/* inquiry */
 		String key = selection;
-		Log.i("log", "KEY: "+key);
+		Log.i("log", "INQUIRY KEY: "+key);
 		String keyHash;
 		
 		try {
@@ -223,7 +225,7 @@ public class DynamoProvider extends ContentProvider {
 			pid = SimpleDynamoApp.checkRange(keyHash);
 			int[] succ = SimpleDynamoApp.getSuccessor(pid);
 			if ( pid == id ) {
-				tgetQ.put(key, 1);
+				getQ.put(key, 1);
 				/* Replicate inquiry */
 				for ( int x=0; x<succ.length; x++) {
 					ReplicateMsg repMsg = new ReplicateMsg();
@@ -238,15 +240,13 @@ public class DynamoProvider extends ContentProvider {
 				}
 				
 				synchronized(lock) {
-					//FIXME
 					lock.wait();
-				
-					MatrixCursor mc = new MatrixCursor(SCHEMA);
-					String[] v = {key, myData.get(key)};
-					mc.addRow(v);
-					mc.setNotificationUri(getContext().getContentResolver(), uri);
-					return mc;
 				}
+				MatrixCursor mc = new MatrixCursor(SCHEMA);
+				String[] v = {key, myData.get(key)};
+				mc.addRow(v);
+				mc.setNotificationUri(getContext().getContentResolver(), uri);
+				return mc;
 			}
 			else {
 				InquiryMsg inqMsg = new InquiryMsg();
@@ -259,39 +259,52 @@ public class DynamoProvider extends ContentProvider {
 				
 				synchronized (lock) {
 					lock.wait(500);
-					if ( rm != null ) {
+				}
+				if ( rm != null ) {
+					MatrixCursor mc = new MatrixCursor(SCHEMA);
+					String[] v = {rm.key, rm.value};
+					mc.addRow(v);
+					mc.setNotificationUri(getContext().getContentResolver(), uri);
+					rm = null;
+					return mc;
+				}
+				/*coordinator is dead, ask its first successor */
+				else {
+					/* I am the first successor */
+					if ( succ[0] == id ) {
+						tgetQ.put(key, 1);
+						for ( int x=1; x<succ.length; x++ ) {
+							Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
+							repIntent.putExtra("key", key);
+							repIntent.putExtra("action", 'g');
+							repIntent.putExtra("sender", succ[x]);
+							repIntent.putExtra("owner", pid);
+							repIntent.putExtra("asker", id);
+							repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+							getContext().getApplicationContext().startService(repIntent);
+						}
+						synchronized (lock) {
+							lock.wait();
+						}
 						MatrixCursor mc = new MatrixCursor(SCHEMA);
-						String[] v = {rm.key, rm.value};
+						String[] v = {key, peerData.get(pid).get(key)};
 						mc.addRow(v);
 						mc.setNotificationUri(getContext().getContentResolver(), uri);
-						rm = null;
 						return mc;
 					}
-					/*coordinator is dead, ask its first successor */
 					else {
-						/* I am the first successor */
-						if ( succ[0] == id ) {
-							synchronized (lock) {
-								lock.wait();
-								MatrixCursor mc = new MatrixCursor(SCHEMA);
-								String[] v = {key, peerData.get(pid).get(key)};
-								mc.addRow(v);
-								mc.setNotificationUri(getContext().getContentResolver(), uri);
-								return mc;
-							}
-						}
-						else {
-							sc = SimpleDynamoApp.outSocket.get(succ[0]);
-							sc.write(ByteBuffer.wrap(msgByte));
+						sc = SimpleDynamoApp.outSocket.get(succ[0]);
+						sc.write(ByteBuffer.wrap(msgByte));
+						synchronized (lock) {
 							lock.wait();
-							if ( rm != null) {
-								MatrixCursor mc = new MatrixCursor(SCHEMA);
-								String[] v = {rm.key, rm.value};
-								mc.addRow(v);
-								mc.setNotificationUri(getContext().getContentResolver(), uri);
-								rm = null;
-								return mc;
-							}
+						}
+						if ( rm != null) {
+							MatrixCursor mc = new MatrixCursor(SCHEMA);
+							String[] v = {rm.key, rm.value};
+							mc.addRow(v);
+							mc.setNotificationUri(getContext().getContentResolver(), uri);
+							rm = null;
+							return mc;
 						}
 					}
 				}

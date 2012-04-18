@@ -222,6 +222,7 @@ public class ListenService extends IntentService {
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ReplicateMsg")) {
 								
 								ReplicateMsg repMsg = (ReplicateMsg) msg;
+								/* insert */
 								if ( repMsg.type == 'p' ) {
 									Map<String, String> t = new HashMap<String, String>();
 									t.put(repMsg.key, repMsg.value);
@@ -235,6 +236,7 @@ public class ListenService extends IntentService {
 									quoIntent.putExtra("type", SimpleDynamoApp.QUO_MSG);
 									startService(quoIntent);
 								}
+								/* inquiry */
 								else {
 									/* reply quorum */
 									Intent quoIntent = new Intent(this, SendService.class);
@@ -268,6 +270,7 @@ public class ListenService extends IntentService {
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
 								
 								QuorumMsg quoMsg = (QuorumMsg) msg;
+								/* insert */
 								if ( quoMsg.type == 'p' ) {
 									if ( quoMsg.owner == myId ) {
 										if ( DynamoProvider.putQ.get(quoMsg.key) != null ) {
@@ -319,7 +322,7 @@ public class ListenService extends IntentService {
 								}
 								/* inquiry */
 								else {
-									//XXX take care of ``sender'' and ``asker''
+									// be care of ``sender'' and ``asker''
 									if ( quoMsg.owner == myId ) {
 										if ( DynamoProvider.getQ.get(quoMsg.key) != null ) {
 											int n = DynamoProvider.getQ.get(quoMsg.key);
@@ -328,7 +331,6 @@ public class ListenService extends IntentService {
 												/* reply inquiry */
 												if ( quoMsg.asker == myId ) {
 													synchronized (DynamoProvider.lock) {
-													//	DynamoProvider.flag = true;
 														DynamoProvider.lock.notify();
 													}
 												}
