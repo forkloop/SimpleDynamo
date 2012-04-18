@@ -28,7 +28,7 @@ public class SimpleDynamoApp extends Application {
 	static Selector selector;
 	static int myId;
 	static String myIdHash;
-	static int emulatorNum=5;
+	static int emulatorNum=3;
 	static List<Integer> succId;
 	
 	static	final int INS_MSG = 1;
@@ -38,6 +38,7 @@ public class SimpleDynamoApp extends Application {
 	static	final int REP_MSG = 5;
 	static	final int CON_MSG = 6;
 	static	final int REC_MSG = 7;
+	static 	final int CONN_MSG = 8;
 //	static enum MsgType { INS_MSG, INQ_MSG, QUO_MSG, ACK_MSG, REP_MSG, CON_MSG, REC_MSG };
 	
 	static String genHash(String input) throws NoSuchAlgorithmException {

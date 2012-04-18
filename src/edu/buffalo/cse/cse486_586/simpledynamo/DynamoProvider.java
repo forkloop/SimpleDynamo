@@ -79,7 +79,7 @@ public class DynamoProvider extends ContentProvider {
 		SimpleDynamoApp.nodeMap = new TreeMap<String, Integer>();
 		SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.myIdHash, SimpleDynamoApp.myId);
 		SimpleDynamoApp.succId = new ArrayList<Integer>();
-		lock = new Boolean(true);
+		lock = new Boolean(false);
 
 		myData = new HashMap<String, String>();
 		peerData = new HashMap<Integer, Map<String, String>>();
@@ -113,7 +113,7 @@ public class DynamoProvider extends ContentProvider {
 				myTmp.put(key, (String) values.get("provider_value"));
 				putQ.put(key, 1);
 				/* Replicate insert */
-				for ( int x=0; x<succ.length; x++) {
+				for ( int x=0; x<succ.length; x++ ) {
 					Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
 					repIntent.putExtra("key", key);
 					repIntent.putExtra("value", (String) values.get("provider_value"));
@@ -124,10 +124,10 @@ public class DynamoProvider extends ContentProvider {
 					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 					getContext().getApplicationContext().startService(repIntent);
 				}
-				//FIXME  should block ?
-//				synchronized (lock) {
-//					
-//				}
+			// FIXME  ? BLOCK ?
+			//	synchronized (lock) {
+			//		
+			//	}
 			}
 			else {
 				InsertMsg insMsg = new InsertMsg();
@@ -138,18 +138,36 @@ public class DynamoProvider extends ContentProvider {
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(insMsg);
 				sc = SimpleDynamoApp.outSocket.get(pid);
 				sc.write(ByteBuffer.wrap(msgByte));
-
+				
+				flag = false;
 				synchronized (lock) {
 					/* wait for ack */
-					lock.wait(500);
-					
-					/* coordinator dead, send to its FIRST successor */
-					if ( !flag ) {
+					lock.wait(200);
+				}
+				/* coordinator dead, send to its FIRST successor */
+				if ( !flag ) {
+					if ( succ[0] != id ) {
 						sc = SimpleDynamoApp.outSocket.get(succ[0]);
 						sc.write(ByteBuffer.wrap(msgByte));
 					}
+					else {
+						Map<String, String>t = new HashMap<String, String>();
+						t.put(key, (String) values.get("provider_value"));
+						peerTmp.put(pid, t);
+						tputQ.put(key, 1);
+						for ( int x=1; x<succ.length; x++ ) {
+							Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
+							repIntent.putExtra("key", key);
+							repIntent.putExtra("value", (String) values.get("provider_value"));
+							repIntent.putExtra("sender", succ[x]);
+							repIntent.putExtra("owner", pid);
+							repIntent.putExtra("action", 'p');
+							repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+							getContext().getApplicationContext().startService(repIntent);
+						}
+					}
 				}
-				//FIXME should block?
+				//FIXME again, BLOCK ?
 			}
 		} catch(NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -160,6 +178,7 @@ public class DynamoProvider extends ContentProvider {
 		}
 		return null;
 	}
+	
 	
 	
 	

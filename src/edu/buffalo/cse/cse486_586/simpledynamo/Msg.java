@@ -83,6 +83,14 @@ class ConfirmMsg implements Serializable {
 	int owner;
 }
 
+class ConnectMsg implements Serializable {
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8625928025705896151L;
+	int sender;
+}
 
 class AckMsg implements Serializable {
 	

@@ -53,17 +53,25 @@ public class ListenService extends IntentService {
 	@Override
 	protected void onHandleIntent(Intent intent) {
 
+		myId = SimpleDynamoApp.myId;
+		
 		try {
 			SimpleDynamoApp.selector = Selector.open();
 			Log.i("log", "Open the selector successfully!");
 			for (int i=5554; i<SimpleDynamoApp.emulatorNum; i+=2) {
-				if ( i != SimpleDynamoApp.myId ) {
+				if ( i != myId ) {
 					SocketChannel sc = SocketChannel.open(new InetSocketAddress("10.0.2.2", i*2));
-					sc.configureBlocking(false);
-					sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
-					SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+i), i);
-					SimpleDynamoApp.nodeHash.put(i, SimpleDynamoApp.genHash(""+i));
-					Log.i("log", "Connecting to " + i);
+					if ( sc.isConnected() ) {
+						Log.i("log", "Connecting to " + i);
+						sc.configureBlocking(false);
+						sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
+						SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+i), i);
+						SimpleDynamoApp.nodeHash.put(i, SimpleDynamoApp.genHash(""+i));
+						Intent connIntent = new Intent(this, SendService.class);
+						connIntent.putExtra("sender", i);
+						connIntent.putExtra("type", SimpleDynamoApp.CONN_MSG);
+						startService(connIntent);
+					}
 				}
 			}
 			update();
@@ -73,7 +81,6 @@ public class ListenService extends IntentService {
 			e.printStackTrace();
 		}
 		
-		myId = SimpleDynamoApp.myId;
 		
 		try{
 			int port = intent.getIntExtra("myPort", 10000);
@@ -81,32 +88,32 @@ public class ListenService extends IntentService {
 			channel.configureBlocking(false);			
 			inSocket = channel.socket();
 			inSocket.bind( new InetSocketAddress("10.0.2.15", port) );
-			Log.i("log", "Binding successfully at " + port);
+			Log.i("log", "Binding successfully at port: " + port);
 			channel.register(SimpleDynamoApp.selector, SelectionKey.OP_ACCEPT);
 			
 			while (true) {
 				
 				int num = SimpleDynamoApp.selector.select();	
-				if (num > 0) {
+				if ( num > 0 ) {
 					Iterator<SelectionKey> iter = SimpleDynamoApp.selector.selectedKeys().iterator();
-					while (iter.hasNext()) {
-						SelectionKey key = iter.next();
+					while ( iter.hasNext() ) {
 						
+						SelectionKey key = iter.next();
 						/* new connection */
-						if ( (key.readyOps() & SelectionKey.OP_ACCEPT) == SelectionKey.OP_ACCEPT ) {
+						if ( (key.readyOps() & SelectionKey.OP_ACCEPT) == SelectionKey.OP_ACCEPT  ) {
 							Log.i("log", "$$$NEW CONNECTION$$$");
 							ServerSocketChannel ssc = (ServerSocketChannel) key.channel();
 							SocketChannel sc = ssc.accept();
 							sc.configureBlocking(false);
 							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
 							//XXX check this
-							int pid = sc.socket().getPort()/2;
-							Log.i("log", "Remote port is "+pid);
-							SimpleDynamoApp.outSocket.put(pid, sc);
-							SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+pid), pid);
-							SimpleDynamoApp.nodeHash.put(pid, SimpleDynamoApp.genHash(""+pid));
-							Log.i("log", "# of connection: " + SimpleDynamoApp.outSocket.size());
-							update();
+						//	int pid = sc.socket().getPort()/2;
+						//	Log.i("log", "!!!!!!!!!Remote port: "+pid);
+						//	SimpleDynamoApp.outSocket.put(pid, sc);
+						//	SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+pid), pid);
+						//	SimpleDynamoApp.nodeHash.put(pid, SimpleDynamoApp.genHash(""+pid));
+						//	Log.i("log", "# of connection: " + SimpleDynamoApp.outSocket.size());
+						//	update();
 						}
 						
 						/* new message */
@@ -126,8 +133,8 @@ public class ListenService extends IntentService {
 							
 							if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.InsertMsg")) {
 								
-								//XXX what if coordinator is dead
 								InsertMsg insMsg = (InsertMsg) msg;
+								/* I am the coordinator */
 								if ( insMsg.owner == myId ) {
 									DynamoProvider.myTmp.put(insMsg.key, insMsg.value);
 									DynamoProvider.putQ.put(insMsg.key, 1);
@@ -139,12 +146,16 @@ public class ListenService extends IntentService {
 									ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
 									startService(ackIntent);
 									/* replicate */
-									Intent repIntent = new Intent(this, SendService.class);
-									repIntent.putExtra("key", insMsg.key);
-									repIntent.putExtra("value", insMsg.value);
-									repIntent.putExtra("action", 'p');
-									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-									startService(repIntent);
+									int[] succ = SimpleDynamoApp.getSuccessor(insMsg.owner);
+									for ( int x=0; x<succ.length; x++ ) {
+										Intent repIntent = new Intent(this, SendService.class);
+										repIntent.putExtra("key", insMsg.key);
+										repIntent.putExtra("value", insMsg.value);
+										repIntent.putExtra("action", 'p');
+										repIntent.putExtra("sender", succ[x]);
+										repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+										startService(repIntent);
+									}
 								}
 								else {
 									Map<String, String>t = new HashMap<String, String>();
@@ -152,18 +163,24 @@ public class ListenService extends IntentService {
 									DynamoProvider.peerTmp.put(insMsg.owner, t);
 									DynamoProvider.tputQ.put(insMsg.key, 1);
 									/* reply back. quorum */
-									Intent ackIntent = new Intent(this, SendService.class);
-									ackIntent.putExtra("key", insMsg.key);
-									ackIntent.putExtra("sender", insMsg.sender);
-									ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
-									startService(ackIntent);
+								//	Intent ackIntent = new Intent(this, SendService.class);
+								//	ackIntent.putExtra("key", insMsg.key);
+								//	ackIntent.putExtra("sender", insMsg.sender);
+								//	ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
+								//	startService(ackIntent);
 									/* replicate */
-									Intent repIntent = new Intent(this, SendService.class);
-									repIntent.putExtra("key", insMsg.key);
-									repIntent.putExtra("value", insMsg.value);
-									repIntent.putExtra("action", 'p');
-									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-									startService(repIntent);
+									int[] succ = SimpleDynamoApp.getSuccessor(insMsg.owner);
+									for ( int x=0; x<succ.length; x++ ) {
+										if ( myId != succ[x] ) {
+											Intent repIntent = new Intent(this, SendService.class);
+											repIntent.putExtra("key", insMsg.key);
+											repIntent.putExtra("value", insMsg.value);
+											repIntent.putExtra("sender", succ[x]);
+											repIntent.putExtra("action", 'p');
+											repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+											startService(repIntent);
+										}
+									}
 								}
 							}
 
@@ -176,17 +193,19 @@ public class ListenService extends IntentService {
 								else {
 									DynamoProvider.tgetQ.put(inqMsg.key, 1);
 								}
-								/* ask for quora */
+								/* ask for quorum */
 								int[] succ = SimpleDynamoApp.getSuccessor(inqMsg.owner);
 								for ( int x=0; x<succ.length; x++ ) {
-									Intent repIntent = new Intent(this, SendService.class);
-									repIntent.putExtra("key", inqMsg.key);
-									repIntent.putExtra("action", 'g');
-									repIntent.putExtra("sender", succ[x]);
-									repIntent.putExtra("owner", inqMsg.owner);
-									repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-									repIntent.putExtra("asker", inqMsg.sender);
-									startService(repIntent);
+									if ( myId != succ[x] ) {
+										Intent repIntent = new Intent(this, SendService.class);
+										repIntent.putExtra("key", inqMsg.key);
+										repIntent.putExtra("action", 'g');
+										repIntent.putExtra("sender", succ[x]);
+										repIntent.putExtra("owner", inqMsg.owner);
+										repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+										repIntent.putExtra("asker", inqMsg.sender);
+										startService(repIntent);
+									}
 								}
 							}
 							
@@ -195,6 +214,7 @@ public class ListenService extends IntentService {
 								//XXX Reply the inquiry or insert 
 								synchronized(DynamoProvider.lock) {
 									DynamoProvider.rm = (AckMsg) msg;
+									DynamoProvider.flag = true;
 									DynamoProvider.lock.notify();
 								}
 							}
@@ -234,6 +254,15 @@ public class ListenService extends IntentService {
 								DynamoProvider.peerData.get(conMsg.owner).put(conMsg.key, 
 										DynamoProvider.peerTmp.get(conMsg.owner).get(conMsg.key));
 								DynamoProvider.peerTmp.get(conMsg.owner).remove(conMsg.key);
+							}
+							
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConnectMsg")) {
+								
+								ConnectMsg connMsg = (ConnectMsg) msg;
+								SimpleDynamoApp.outSocket.put(connMsg.sender, sc);
+								SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+connMsg.sender), connMsg.sender);
+								SimpleDynamoApp.nodeHash.put(connMsg.sender, SimpleDynamoApp.genHash(""+connMsg.sender));
+								update();
 							}
 							
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
@@ -372,4 +401,5 @@ public class ListenService extends IntentService {
 		}
 	}
 	
+/* End of class */	
 }

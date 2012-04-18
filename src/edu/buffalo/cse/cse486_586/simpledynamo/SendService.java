@@ -79,8 +79,15 @@ public class SendService extends IntentService {
 			repMsg.owner = intent.getIntExtra("owner", -1);
 			repMsg.sender = SimpleDynamoApp.myId;
 			repMsg.type = intent.getCharExtra("action", 'g');
+			/* used when inquiry */
 			repMsg.asker = intent.getIntExtra("asker", -1);
 			msgByte = SimpleDynamoApp.getMsgStream(repMsg);
+			break;
+			
+		case SimpleDynamoApp.CONN_MSG:
+			ConnectMsg connMsg = new ConnectMsg();
+			connMsg.sender = SimpleDynamoApp.myId;
+			msgByte = SimpleDynamoApp.getMsgStream(connMsg);
 			break;
 			
 		case SimpleDynamoApp.REC_MSG:
