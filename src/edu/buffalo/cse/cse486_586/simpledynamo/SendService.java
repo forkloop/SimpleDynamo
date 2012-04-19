@@ -97,7 +97,8 @@ public class SendService extends IntentService {
 			Log.i("log", "**********************I think I am in trouble now...");
 		}
 		try {
-			sc = SimpleDynamoApp.outSocket.get(intent.getIntExtra("sender", -1));
+			sc = SimpleDynamoApp.sendSocket.get(intent.getIntExtra("sender", -1));
+			Log.i("log", "Write to " + intent.getIntExtra("sender", -1) + " MSG: " + type);
 			sc.write(ByteBuffer.wrap(msgByte));
 		} catch (IOException e) {
 			e.printStackTrace();

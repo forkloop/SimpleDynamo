@@ -33,7 +33,7 @@ public class ListenService extends IntentService {
 	private ServerSocket inSocket;
 	private ServerSocketChannel channel;
 	private int myId;
-	
+	private int conn = 0;
 
 	public ListenService() {
 		super("ListenService");
@@ -58,29 +58,29 @@ public class ListenService extends IntentService {
 		try {
 			SimpleDynamoApp.selector = Selector.open();
 			Log.i("log", "Open the selector successfully!");
-			for (int i=5554; i<SimpleDynamoApp.emulatorNum; i+=2) {
+			int maxId = 5554 + SimpleDynamoApp.emulatorNum*2;
+			/**************************/
+			for ( int i=5554; i<myId; i+=2) {
+			/**************************/
+			//for (int i=5554; i<maxId; i+=2) {
 				if ( i != myId ) {
 					SocketChannel sc = SocketChannel.open(new InetSocketAddress("10.0.2.2", i*2));
 					if ( sc.isConnected() ) {
 						Log.i("log", "Connecting to " + i);
 						sc.configureBlocking(false);
 						sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
+						SimpleDynamoApp.sendSocket.put(i, sc);
 						SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+i), i);
-						SimpleDynamoApp.nodeHash.put(i, SimpleDynamoApp.genHash(""+i));
-						Intent connIntent = new Intent(this, SendService.class);
-						connIntent.putExtra("sender", i);
-						connIntent.putExtra("type", SimpleDynamoApp.CONN_MSG);
-						startService(connIntent);
 					}
 				}
 			}
-			update();
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		
+		/* update */
+		update();
 		
 		try{
 			int port = intent.getIntExtra("myPort", 10000);
@@ -106,7 +106,13 @@ public class ListenService extends IntentService {
 							SocketChannel sc = ssc.accept();
 							sc.configureBlocking(false);
 							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
-							//XXX check this
+							/**************************/
+							conn++;
+							int pid = myId+2*conn;
+							SimpleDynamoApp.sendSocket.put(myId+2*conn, sc);
+							SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+pid), pid);
+							update();
+							/**************************/
 						//	int pid = sc.socket().getPort()/2;
 						//	Log.i("log", "!!!!!!!!!Remote port: "+pid);
 						//	SimpleDynamoApp.outSocket.put(pid, sc);
@@ -144,6 +150,7 @@ public class ListenService extends IntentService {
 									ackIntent.putExtra("value", insMsg.value);
 									ackIntent.putExtra("sender", insMsg.sender);
 									ackIntent.putExtra("type", SimpleDynamoApp.ACK_MSG);
+									Log.i("log", "Coordinator ACK to " + insMsg.sender);
 									startService(ackIntent);
 									/* replicate */
 									int[] succ = SimpleDynamoApp.getSuccessor(insMsg.owner);
@@ -152,15 +159,18 @@ public class ListenService extends IntentService {
 										repIntent.putExtra("key", insMsg.key);
 										repIntent.putExtra("value", insMsg.value);
 										repIntent.putExtra("action", 'p');
+										repIntent.putExtra("owner", myId);
 										repIntent.putExtra("sender", succ[x]);
 										repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
+										Log.i("log", "Coordinator replicate to " + succ[x]);
 										startService(repIntent);
 									}
 								}
 								else {
-									Map<String, String>t = new HashMap<String, String>();
-									t.put(insMsg.key, insMsg.value);
-									DynamoProvider.peerTmp.put(insMsg.owner, t);
+								//	Map<String, String>t = new HashMap<String, String>();
+								//	t.put(insMsg.key, insMsg.value);
+									DynamoProvider.peerTmp.get(insMsg.owner).put(insMsg.key, insMsg.value);
+								//	DynamoProvider.peerTmp.put(insMsg.owner, t);
 									DynamoProvider.tputQ.put(insMsg.key, 1);
 									/* reply back. quorum */
 								//	Intent ackIntent = new Intent(this, SendService.class);
@@ -176,6 +186,7 @@ public class ListenService extends IntentService {
 											repIntent.putExtra("key", insMsg.key);
 											repIntent.putExtra("value", insMsg.value);
 											repIntent.putExtra("sender", succ[x]);
+											repIntent.putExtra("owner", insMsg.owner);
 											repIntent.putExtra("action", 'p');
 											repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
 											startService(repIntent);
@@ -214,7 +225,7 @@ public class ListenService extends IntentService {
 								//XXX Reply the inquiry or insert 
 								synchronized(DynamoProvider.lock) {
 									DynamoProvider.rm = (AckMsg) msg;
-									DynamoProvider.flag = true;
+								//	DynamoProvider.flag = true;
 									DynamoProvider.lock.notify();
 								}
 							}
@@ -224,9 +235,10 @@ public class ListenService extends IntentService {
 								ReplicateMsg repMsg = (ReplicateMsg) msg;
 								/* insert */
 								if ( repMsg.type == 'p' ) {
-									Map<String, String> t = new HashMap<String, String>();
-									t.put(repMsg.key, repMsg.value);
-									DynamoProvider.peerTmp.put(repMsg.owner, t);
+								//	Map<String, String> t = new HashMap<String, String>();
+								//	t.put(repMsg.key, repMsg.value);
+								//	DynamoProvider.peerTmp.put(repMsg.owner, t);
+									DynamoProvider.peerTmp.get(repMsg.owner).put(repMsg.key, repMsg.value);
 									/* reply quorum */
 									Intent quoIntent = new Intent(this, SendService.class);
 									quoIntent.putExtra("sender", repMsg.sender);
@@ -253,23 +265,26 @@ public class ListenService extends IntentService {
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConfirmMsg")) {
 								
 								ConfirmMsg conMsg = (ConfirmMsg) msg;
+							//	Map<String, String> t = new HashMap<String, String>();
+							//	t.put(conMsg.key, DynamoProvider.peerTmp.get(conMsg.owner).get(conMsg.key));
 								DynamoProvider.peerData.get(conMsg.owner).put(conMsg.key, 
 										DynamoProvider.peerTmp.get(conMsg.owner).get(conMsg.key));
 								DynamoProvider.peerTmp.get(conMsg.owner).remove(conMsg.key);
 							}
 							
-							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConnectMsg")) {
-								
-								ConnectMsg connMsg = (ConnectMsg) msg;
-								SimpleDynamoApp.outSocket.put(connMsg.sender, sc);
-								SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+connMsg.sender), connMsg.sender);
-								SimpleDynamoApp.nodeHash.put(connMsg.sender, SimpleDynamoApp.genHash(""+connMsg.sender));
-								update();
-							}
+//							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConnectMsg")) {
+//								
+//								ConnectMsg connMsg = (ConnectMsg) msg;
+//								SimpleDynamoApp.recvSocket.put(connMsg.sender, sc);
+//								SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+connMsg.sender), connMsg.sender);
+//								SimpleDynamoApp.nodeHash.put(connMsg.sender, SimpleDynamoApp.genHash(""+connMsg.sender));
+//								update();
+//							}
 							
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
 								
 								QuorumMsg quoMsg = (QuorumMsg) msg;
+								Log.i("log", "type: " + quoMsg.type + " owner: " + quoMsg.owner + "");
 								/* insert */
 								if ( quoMsg.type == 'p' ) {
 									if ( quoMsg.owner == myId ) {
@@ -285,6 +300,7 @@ public class ListenService extends IntentService {
 													Intent conIntent = new Intent(this, SendService.class);
 													conIntent.putExtra("sender", succ[x]);
 													conIntent.putExtra("key", quoMsg.key);
+													conIntent.putExtra("owner", quoMsg.owner);
 													conIntent.putExtra("type", SimpleDynamoApp.CON_MSG);
 													startService(conIntent);
 												}
@@ -309,6 +325,7 @@ public class ListenService extends IntentService {
 														Intent conIntent = new Intent(this, SendService.class);
 														conIntent.putExtra("sender", succ[x]);
 														conIntent.putExtra("key", quoMsg.key);
+														conIntent.putExtra("owner", quoMsg.owner);
 														conIntent.putExtra("type", SimpleDynamoApp.CON_MSG);
 														startService(conIntent);
 													}
@@ -397,9 +414,19 @@ public class ListenService extends IntentService {
 	private void update() {
 		
 		Set<String> h = SimpleDynamoApp.nodeMap.keySet();
+		Log.i("log", "update: # of node " + h.size());
 		SimpleDynamoApp.succId = new ArrayList<Integer>();
 		for ( String s : h) {
-			SimpleDynamoApp.succId.add(SimpleDynamoApp.nodeMap.get(s));
+			int x = SimpleDynamoApp.nodeMap.get(s);
+			SimpleDynamoApp.succId.add(x);
+			//FIXME Should ONLY successor
+			if ( (x != myId) && (DynamoProvider.peerData.get(x) == null) ) {
+				Map<String, String> t = new HashMap<String, String>();
+				DynamoProvider.peerData.put(x, t);
+				Map<String, String> tt = new HashMap<String, String>();
+				DynamoProvider.peerTmp.put(x, tt);
+			}
+			Log.i("log", s + " : " + x);
 		}
 	}
 	

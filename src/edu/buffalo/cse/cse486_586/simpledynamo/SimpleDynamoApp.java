@@ -22,9 +22,10 @@ public class SimpleDynamoApp extends Application {
 	static final int N=3;
 	static final int R = 2;
 	static final int W = 2;
-	static Map<Integer, SocketChannel> outSocket;
+	static Map<Integer, SocketChannel> recvSocket;
+	static Map<Integer, SocketChannel> sendSocket;
 	static SortedMap<String, Integer> nodeMap;
-	static Map<Integer, String> nodeHash;
+//	static Map<Integer, String> nodeHash;
 	static Selector selector;
 	static int myId;
 	static String myIdHash;
@@ -56,11 +57,11 @@ public class SimpleDynamoApp extends Application {
 
 	static int checkRange( String s ) {
 		
-		//XXX is keySet sorted???
-		String[] key = (String[]) nodeMap.keySet().toArray();
-		for ( int i=0; i<nodeMap.size(); i++ ) {
-			if ( s.compareTo(key[i])<=0 ) {
-				return nodeMap.get(key[i]);
+		/* keySet() is sorted */
+		String[] key = nodeMap.keySet().toArray(new String[0]);
+		for ( int x=0; x<nodeMap.size(); x++ ) {
+			if ( s.compareTo(key[x])<=0 ) {
+				return nodeMap.get(key[x]);
 			}
 		}
 		return nodeMap.get(key[0]);

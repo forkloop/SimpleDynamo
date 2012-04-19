@@ -75,7 +75,8 @@ public class DynamoProvider extends ContentProvider {
 			e.printStackTrace();
 		}
 		SimpleDynamoApp.myId = id;
-		SimpleDynamoApp.outSocket = new HashMap<Integer, SocketChannel>();
+		SimpleDynamoApp.recvSocket = new HashMap<Integer, SocketChannel>();
+		SimpleDynamoApp.sendSocket = new HashMap<Integer, SocketChannel>();
 		SimpleDynamoApp.nodeMap = new TreeMap<String, Integer>();
 		SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.myIdHash, SimpleDynamoApp.myId);
 		SimpleDynamoApp.succId = new ArrayList<Integer>();
@@ -136,18 +137,21 @@ public class DynamoProvider extends ContentProvider {
 				insMsg.owner = pid;
 				insMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(insMsg);
-				sc = SimpleDynamoApp.outSocket.get(pid);
+				sc = SimpleDynamoApp.sendSocket.get(pid);
+				Log.i("log", "Write to " + pid + " : " + sc.isConnected());
 				sc.write(ByteBuffer.wrap(msgByte));
 				
-				flag = false;
+			//	flag = false;
+				rm = null;
 				synchronized (lock) {
 					/* wait for ack */
-					lock.wait(200);
+					lock.wait(300);
 				}
 				/* coordinator dead, send to its FIRST successor */
-				if ( !flag ) {
+				if ( rm == null ) {
+					Log.i("log", "Coordinator " + pid + " is DEAD");
 					if ( succ[0] != id ) {
-						sc = SimpleDynamoApp.outSocket.get(succ[0]);
+						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
 						sc.write(ByteBuffer.wrap(msgByte));
 					}
 					else {
@@ -190,6 +194,8 @@ public class DynamoProvider extends ContentProvider {
 		if ( selectionArgs[0].equals("dump") ) {
 			MatrixCursor mc = new MatrixCursor(SCHEMA);
 			db = dbHelper.getWritableDatabase();
+			String[] v0 = {"@"+id, ""};
+			mc.addRow(v0);
 			Set<String> myKeys = myData.keySet();
 			for ( String s : myKeys ) {
 				String[] v = {s, myData.get(s)};
@@ -197,11 +203,13 @@ public class DynamoProvider extends ContentProvider {
 				ContentValues inserted = new ContentValues();
 				inserted.put("provider_key", v[0]);
 				inserted.put("provider_value",v[1]);
-				db.insert(MSG_TABLE_NAME, null, inserted);
+			//	db.insert(MSG_TABLE_NAME, null, inserted);
 			}
 			Set<Integer> succ = peerData.keySet();
 			for ( int x : succ ) {
 				Map<String, String> data = peerData.get(x);
+				String[] v1 = {"@"+x, ""};
+				mc.addRow(v1);
 				Set<String> peerKeys = data.keySet();
 				for ( String s : peerKeys ) {
 					String[] v = {s, data.get(s)};
@@ -209,7 +217,7 @@ public class DynamoProvider extends ContentProvider {
 					ContentValues inserted = new ContentValues();
 					inserted.put("provider_key", v[0]);
 					inserted.put("provider_value",v[1]);
-					db.insert(MSG_TABLE_NAME, null, inserted);
+				//	db.insert(MSG_TABLE_NAME, null, inserted);
 				}
 			}
 			return mc;
@@ -235,7 +243,7 @@ public class DynamoProvider extends ContentProvider {
 					repMsg.owner = pid;
 					repMsg.asker = id;
 					byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
-					sc = SimpleDynamoApp.outSocket.get(succ[x]);
+					sc = SimpleDynamoApp.sendSocket.get(succ[x]);
 					sc.write(ByteBuffer.wrap(msgByte));
 				}
 				
@@ -254,7 +262,7 @@ public class DynamoProvider extends ContentProvider {
 				inqMsg.owner = pid;
 				inqMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(inqMsg);
-				sc = SimpleDynamoApp.outSocket.get(pid);
+				sc = SimpleDynamoApp.sendSocket.get(pid);
 				sc.write(ByteBuffer.wrap(msgByte));
 				
 				synchronized (lock) {
@@ -293,7 +301,7 @@ public class DynamoProvider extends ContentProvider {
 						return mc;
 					}
 					else {
-						sc = SimpleDynamoApp.outSocket.get(succ[0]);
+						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
 						sc.write(ByteBuffer.wrap(msgByte));
 						synchronized (lock) {
 							lock.wait();

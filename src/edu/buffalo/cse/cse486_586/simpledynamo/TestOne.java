@@ -22,7 +22,7 @@ public class TestOne extends IntentService {
 	@Override
 	protected void onHandleIntent (Intent intent) {
 		
-		int testNum=10;
+		int testNum=5;
 		int magic = intent.getIntExtra("magic", 1)*10;
 		/**
 		 * Insert
@@ -35,7 +35,6 @@ public class TestOne extends IntentService {
 				inserted.put("provider_key", ""+i);
 				inserted.put("provider_value", "Put"+(i+magic));
 				Uri uri = getApplicationContext().getContentResolver().insert(TABLE_URI, inserted);
-				Log.i("log", "Inserting URI " + uri);
 			}  catch (InterruptedException e) {
 				e.printStackTrace();
 			}
