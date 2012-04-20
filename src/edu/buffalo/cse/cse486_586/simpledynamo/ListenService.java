@@ -55,33 +55,38 @@ public class ListenService extends IntentService {
 
 		myId = SimpleDynamoApp.myId;
 		
-		try {
-			SimpleDynamoApp.selector = Selector.open();
-			Log.i("log", "Open the selector successfully!");
-			int maxId = 5554 + SimpleDynamoApp.emulatorNum*2;
-			/**************************/
-			for ( int i=5554; i<myId; i+=2) {
-			/**************************/
-			//for (int i=5554; i<maxId; i+=2) {
-				if ( i != myId ) {
-					SocketChannel sc = SocketChannel.open(new InetSocketAddress("10.0.2.2", i*2));
-					if ( sc.isConnected() ) {
-						Log.i("log", "Connecting to " + i);
-						sc.configureBlocking(false);
-						sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
-						SimpleDynamoApp.sendSocket.put(i, sc);
-						SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+i), i);
-					}
-				}
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
-		/* update */
-		update();
+		startup();
+//		try {
+//			SimpleDynamoApp.selector = Selector.open();
+//			Log.i("log", "Open the selector successfully!");
+//			int maxId = 5554 + SimpleDynamoApp.emulatorNum*2;
+//			/**************************/
+//			for ( int i=5554; i<myId; i+=2) {
+//			/**************************/
+//			//for (int i=5554; i<maxId; i+=2) {
+//				if ( i != myId ) {
+//					SocketChannel sc = SocketChannel.open(new InetSocketAddress("10.0.2.2", i*2));
+//					if ( sc.isConnected() ) {
+//						Log.i("log", "Connecting to " + i);
+//						sc.configureBlocking(false);
+//						sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
+//						SimpleDynamoApp.sendSocket.put(i, sc);
+//						SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+i), i);
+//					}
+//				}
+//			}
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		} catch (NoSuchAlgorithmException e) {
+//			e.printStackTrace();
+//		}
+//		/* update */
+//		update();
 		
+		
+		
+		
+		/** Listen */
 		try{
 			int port = intent.getIntExtra("myPort", 10000);
 			channel = ServerSocketChannel.open();
@@ -107,11 +112,11 @@ public class ListenService extends IntentService {
 							sc.configureBlocking(false);
 							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
 							/**************************/
-							conn++;
-							int pid = myId+2*conn;
-							SimpleDynamoApp.sendSocket.put(myId+2*conn, sc);
-							SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+pid), pid);
-							update();
+						//	conn++;
+						//	int pid = myId+2*conn;
+						//	SimpleDynamoApp.sendSocket.put(myId+2*conn, sc);
+						//	SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+pid), pid);
+						//	update();
 							/**************************/
 						//	int pid = sc.socket().getPort()/2;
 						//	Log.i("log", "!!!!!!!!!Remote port: "+pid);
@@ -273,14 +278,18 @@ public class ListenService extends IntentService {
 								DynamoProvider.peerTmp.get(conMsg.owner).remove(conMsg.key);
 							}
 							
-//							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConnectMsg")) {
-//								
-//								ConnectMsg connMsg = (ConnectMsg) msg;
-//								SimpleDynamoApp.recvSocket.put(connMsg.sender, sc);
-//								SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+connMsg.sender), connMsg.sender);
-//								SimpleDynamoApp.nodeHash.put(connMsg.sender, SimpleDynamoApp.genHash(""+connMsg.sender));
-//								update();
-//							}
+							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.JoinMsg")) {
+								
+								JoinMsg joinMsg = (JoinMsg) msg;
+								SimpleDynamoApp.sendSocket.put(joinMsg.sender, sc);
+								Intent recIntent = new Intent(this, SendService.class);
+								
+								recIntent.putExtra("rec", "@"+myId);
+								recIntent.putExtra("sender", joinMsg.sender);
+								recIntent.putExtra("type", SimpleDynamoApp.REC_MSG);
+								startService(recIntent);
+								
+							}
 							
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.QuorumMsg")) {
 								
@@ -401,12 +410,59 @@ public class ListenService extends IntentService {
 			}
 		} catch(IOException e){
 			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
+//		} catch (NoSuchAlgorithmException e) {
+//			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}		
 	}
+	
+	
+	private void startup() {
+		
+		try {
+			SimpleDynamoApp.selector = Selector.open();
+			int maxId = 5554 + SimpleDynamoApp.emulatorNum*2;
+			for (int i=5554; i<maxId; i+=2) {
+				if ( i != myId ) {
+					Log.i("log", "Connecting to " + i);
+					SocketChannel sc = SocketChannel.open(new InetSocketAddress("10.0.2.2", i*2));
+					if ( sc.isConnected() ) {
+						sc.configureBlocking(false);
+						JoinMsg joinMsg = new JoinMsg();
+						joinMsg.sender = myId;
+						byte[] msgByte = SimpleDynamoApp.getMsgStream(joinMsg);
+						sc.write(ByteBuffer.wrap(msgByte));
+
+						Thread.sleep(500);
+						
+						RecoveryMsg recMsg = null;
+						ByteBuffer bb = ByteBuffer.allocate(1000);
+						try {
+							sc.read(bb);
+							byte[] bt = bb.array();							
+							ByteArrayInputStream bis = new ByteArrayInputStream(bt);
+							ObjectInputStream ois = new ObjectInputStream(bis);
+							recMsg = (RecoveryMsg) ois.readObject();
+							Log.i("log", "RecoveryMsg " + recMsg.rec);
+							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
+							SimpleDynamoApp.sendSocket.put(i, sc);
+						} catch (ClassNotFoundException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
 	
 	
 	/**

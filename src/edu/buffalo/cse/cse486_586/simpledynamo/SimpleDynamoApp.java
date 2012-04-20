@@ -40,7 +40,7 @@ public class SimpleDynamoApp extends Application {
 	static	final int REP_MSG = 5;
 	static	final int CON_MSG = 6;
 	static	final int REC_MSG = 7;
-	static 	final int CONN_MSG = 8;
+	static 	final int JOIN_MSG = 8;
 //	static enum MsgType { INS_MSG, INQ_MSG, QUO_MSG, ACK_MSG, REP_MSG, CON_MSG, REC_MSG };
 	
 	static String genHash(String input) throws NoSuchAlgorithmException {

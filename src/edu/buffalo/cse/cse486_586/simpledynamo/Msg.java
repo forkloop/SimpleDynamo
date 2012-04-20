@@ -7,6 +7,18 @@ import java.io.Serializable;
  * @author forkloop
  *
  */
+
+class JoinMsg implements Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -7143399440835820120L;
+	int sender;
+	
+}
+
+
 class InsertMsg implements Serializable {
 
 	/**
@@ -33,15 +45,6 @@ class InquiryMsg implements Serializable {
 }
 
 
-class ReplyMsg implements Serializable {
-	
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 2415526750905787002L;
-	String key;
-	String value;
-}
 
 class ReplicateMsg implements Serializable {
 	
@@ -72,6 +75,10 @@ class QuorumMsg implements Serializable {
 	
 }
 
+class RecoveryMsg implements Serializable {
+
+	String rec;
+}
 
 class ConfirmMsg implements Serializable {
 
@@ -83,14 +90,6 @@ class ConfirmMsg implements Serializable {
 	int owner;
 }
 
-class ConnectMsg implements Serializable {
-	
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -8625928025705896151L;
-	int sender;
-}
 
 class AckMsg implements Serializable {
 	

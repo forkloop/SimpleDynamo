@@ -84,13 +84,16 @@ public class SendService extends IntentService {
 			msgByte = SimpleDynamoApp.getMsgStream(repMsg);
 			break;
 			
-		case SimpleDynamoApp.CONN_MSG:
-			ConnectMsg connMsg = new ConnectMsg();
-			connMsg.sender = SimpleDynamoApp.myId;
-			msgByte = SimpleDynamoApp.getMsgStream(connMsg);
+		case SimpleDynamoApp.JOIN_MSG:
+			JoinMsg joinMsg = new JoinMsg();
+			joinMsg.sender = SimpleDynamoApp.myId;
+			msgByte = SimpleDynamoApp.getMsgStream(joinMsg);
 			break;
 			
 		case SimpleDynamoApp.REC_MSG:
+			RecoveryMsg recMsg = new RecoveryMsg();
+			recMsg.rec = intent.getStringExtra("rec");
+			msgByte = SimpleDynamoApp.getMsgStream(recMsg);
 			break;
 			
 		default:

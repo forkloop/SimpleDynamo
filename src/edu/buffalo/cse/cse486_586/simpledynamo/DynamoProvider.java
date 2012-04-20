@@ -78,8 +78,27 @@ public class DynamoProvider extends ContentProvider {
 		SimpleDynamoApp.recvSocket = new HashMap<Integer, SocketChannel>();
 		SimpleDynamoApp.sendSocket = new HashMap<Integer, SocketChannel>();
 		SimpleDynamoApp.nodeMap = new TreeMap<String, Integer>();
-		SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.myIdHash, SimpleDynamoApp.myId);
+		
+		/* hardcoded */
+		for (int x=0; x<SimpleDynamoApp.emulatorNum; x++) {
+			int tid = 5554+x*2;
+			if ( tid == id ) {
+				SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.myIdHash, id);
+			}
+			else {
+				try {
+					SimpleDynamoApp.nodeMap.put(SimpleDynamoApp.genHash(""+tid), tid);
+				} catch (NoSuchAlgorithmException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 		SimpleDynamoApp.succId = new ArrayList<Integer>();
+		Set<String> k = SimpleDynamoApp.nodeMap.keySet();
+		for ( String s : k ) {
+			int x = SimpleDynamoApp.nodeMap.get(s);
+			SimpleDynamoApp.succId.add(x);
+		}
 		lock = new Boolean(false);
 
 		myData = new HashMap<String, String>();
@@ -91,6 +110,15 @@ public class DynamoProvider extends ContentProvider {
 		myTmp = new HashMap<String, String>();
 		peerTmp = new HashMap<Integer, Map<String, String>>();
 
+		int[] succ = SimpleDynamoApp.getSuccessor(id);
+		for ( int x=0; x<succ.length; x++ ) {
+			Map<String, String> t = new HashMap<String, String>();
+			peerData.put(succ[x], t);
+			Map<String, String> tt = new HashMap<String, String>();
+			peerTmp.put(succ[x], tt);
+		}
+		
+		/* start */
 		Intent intent = new Intent(getContext().getApplicationContext(), ListenService.class);
 		intent.putExtra("myPort", 10000);
 		getContext().getApplicationContext().startService(intent);
