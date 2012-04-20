@@ -246,6 +246,7 @@ public class DynamoProvider extends ContentProvider {
 					repMsg.asker = id;
 					byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
 					sc = SimpleDynamoApp.sendSocket.get(succ[x]);
+					Log.i("log", "Coordinator ask for quorum from: " + succ[x]);
 					sc.write(ByteBuffer.wrap(msgByte));
 				}
 				/* wait for quorum */
@@ -270,6 +271,7 @@ public class DynamoProvider extends ContentProvider {
 				inqMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(inqMsg);
 				sc = SimpleDynamoApp.sendSocket.get(pid);
+				Log.i("log", "Send inquiry to coordinator: " + pid);
 				sc.write(ByteBuffer.wrap(msgByte));
 				
 				synchronized (lock) {
