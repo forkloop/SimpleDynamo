@@ -143,10 +143,12 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 	}
 
 	/**
-	 * Query()
+	 * Query
 	 */
 	private void Test4() {
 		
+		Intent intent = new Intent(this, TestTwo.class);
+		startService(intent);
 	}
 
 	/**

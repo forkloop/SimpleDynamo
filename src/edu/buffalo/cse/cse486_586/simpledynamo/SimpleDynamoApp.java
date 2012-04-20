@@ -30,6 +30,7 @@ public class SimpleDynamoApp extends Application {
 	static int myId;
 	static String myIdHash;
 	static int emulatorNum=3;
+	static int testNum=5;
 	static List<Integer> succId;
 	
 	static	final int INS_MSG = 1;

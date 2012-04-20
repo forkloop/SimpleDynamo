@@ -261,6 +261,7 @@ public class ListenService extends IntentService {
 									startService(quoIntent);
 								}
 							}
+							
 							/* confirm the successor to insert the entry */
 							else if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.ConfirmMsg")) {
 								

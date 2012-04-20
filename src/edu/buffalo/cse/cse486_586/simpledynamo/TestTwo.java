@@ -22,7 +22,7 @@ public class TestTwo extends IntentService {
 	@Override
 	protected void onHandleIntent (Intent intent) {
 		
-		int testNum = 10;
+		int testNum = SimpleDynamoApp.testNum;
 		
 		/** 
 		 * Inquiry 
@@ -33,14 +33,15 @@ public class TestTwo extends IntentService {
 				Thread.sleep(3000);
 				Log.i("log", "Inquirying "+i);
 				Cursor c = getApplicationContext().getContentResolver().query(TABLE_URI, null, ""+i, null, null);
-				Log.i("log", "Size of return query is "+c.getCount());
-				c.moveToFirst();
-				Log.i("log", "QUERY RESULT: " + c.getString(0) + " : " + c.getString(1));
-				Intent disIntent = new Intent();
-				disIntent.putExtra("key", c.getString(0));
-				disIntent.putExtra("value", c.getString(1));
-				disIntent.setAction("us.forkloop.sockettalk.RECV");
-				sendBroadcast(disIntent);
+				Log.i("log", "# of res: "+c.getCount());
+				if ( c.getCount() > 0 ) {
+					c.moveToFirst();
+					Intent dispIntent = new Intent();
+					dispIntent.putExtra("key", c.getString(0));
+					dispIntent.putExtra("value", c.getString(1));
+					dispIntent.setAction("us.forkloop.sockettalk.RECV");
+					sendBroadcast(dispIntent);
+				}
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

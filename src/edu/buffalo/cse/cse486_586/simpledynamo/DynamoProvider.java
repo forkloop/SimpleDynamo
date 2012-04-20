@@ -131,6 +131,7 @@ public class DynamoProvider extends ContentProvider {
 			//	}
 			}
 			else {
+				rm = null;
 				InsertMsg insMsg = new InsertMsg();
 				insMsg.key = (String) values.get("provider_key");
 				insMsg.value = (String) values.get("provider_value");
@@ -142,7 +143,6 @@ public class DynamoProvider extends ContentProvider {
 				sc.write(ByteBuffer.wrap(msgByte));
 				
 			//	flag = false;
-				rm = null;
 				synchronized (lock) {
 					/* wait for ack */
 					lock.wait(300);
@@ -190,8 +190,9 @@ public class DynamoProvider extends ContentProvider {
 	public Cursor query(Uri uri, String[] projection, String selection,
 			String[] selectionArgs, String sortOrder) {
 
-		/* dump */
-		if ( selectionArgs[0].equals("dump") ) {
+		/** dump */
+		if ( selectionArgs != null ) {
+	//	if ( selectionArgs[0].equals("dump") ) {
 			MatrixCursor mc = new MatrixCursor(SCHEMA);
 			db = dbHelper.getWritableDatabase();
 			String[] v0 = {"@"+id, ""};
@@ -223,7 +224,7 @@ public class DynamoProvider extends ContentProvider {
 			return mc;
 		}
 		
-		/* inquiry */
+		/** inquiry */
 		String key = selection;
 		Log.i("log", "INQUIRY KEY: "+key);
 		String keyHash;
@@ -232,6 +233,7 @@ public class DynamoProvider extends ContentProvider {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
 			int[] succ = SimpleDynamoApp.getSuccessor(pid);
+			/* I am the coordinator */
 			if ( pid == id ) {
 				getQ.put(key, 1);
 				/* Replicate inquiry */
@@ -246,17 +248,22 @@ public class DynamoProvider extends ContentProvider {
 					sc = SimpleDynamoApp.sendSocket.get(succ[x]);
 					sc.write(ByteBuffer.wrap(msgByte));
 				}
-				
+				/* wait for quorum */
 				synchronized(lock) {
 					lock.wait();
 				}
+				/* Since I am the coordinator, I can
+				 * get the data directly
+				 */
 				MatrixCursor mc = new MatrixCursor(SCHEMA);
 				String[] v = {key, myData.get(key)};
 				mc.addRow(v);
 				mc.setNotificationUri(getContext().getContentResolver(), uri);
 				return mc;
 			}
+			/* Send to coordinator */
 			else {
+				rm = null;
 				InquiryMsg inqMsg = new InquiryMsg();
 				inqMsg.key = key;
 				inqMsg.owner = pid;
@@ -306,7 +313,7 @@ public class DynamoProvider extends ContentProvider {
 						synchronized (lock) {
 							lock.wait();
 						}
-						if ( rm != null) {
+						if ( rm != null ) {
 							MatrixCursor mc = new MatrixCursor(SCHEMA);
 							String[] v = {rm.key, rm.value};
 							mc.addRow(v);

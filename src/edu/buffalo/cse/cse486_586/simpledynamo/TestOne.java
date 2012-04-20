@@ -22,7 +22,7 @@ public class TestOne extends IntentService {
 	@Override
 	protected void onHandleIntent (Intent intent) {
 		
-		int testNum=5;
+		int testNum = SimpleDynamoApp.testNum;
 		int magic = intent.getIntExtra("magic", 1)*10;
 		/**
 		 * Insert
