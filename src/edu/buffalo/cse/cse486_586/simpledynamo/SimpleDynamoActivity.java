@@ -57,7 +57,9 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 	@Override
 	public void onResume() {
 		super.onResume();
-		if(recvHandler == null) recvHandler = new Receiver();
+		if(recvHandler == null) { 
+			recvHandler = new Receiver();
+		}
 		IntentFilter intentFilter = new IntentFilter("us.forkloop.sockettalk.RECV");
 		registerReceiver(recvHandler, intentFilter);
 	}
@@ -65,13 +67,25 @@ public class SimpleDynamoActivity extends Activity implements OnClickListener {
 	@Override
 	public void onPause() {
 		super.onPause();
-		if(recvHandler != null) unregisterReceiver(recvHandler);
+		if(recvHandler != null) {
+			try {
+				unregisterReceiver(recvHandler);
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-		unregisterReceiver(recvHandler);
+		if(recvHandler != null) {
+			try {
+				unregisterReceiver(recvHandler);
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	

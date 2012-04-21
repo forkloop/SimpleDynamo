@@ -2,6 +2,7 @@ package edu.buffalo.cse.cse486_586.simpledynamo;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 
 import android.app.IntentService;
@@ -24,9 +25,10 @@ public class SendService extends IntentService {
 	protected void onHandleIntent (Intent intent) {
 
 		int type = intent.getIntExtra("type", -1);
+		int sender = intent.getIntExtra("sender", -1);
 		byte[] msgByte = null;
 		SocketChannel sc = null;
-		sc = SimpleDynamoApp.sendSocket.get(intent.getIntExtra("sender", -1));
+		sc = SimpleDynamoApp.sendSocket.get(sender);
 		if ( sc != null ) {
 			switch (type) {
 			case SimpleDynamoApp.INS_MSG:
@@ -110,8 +112,11 @@ public class SendService extends IntentService {
 			}
 			try {
 	//			sc = SimpleDynamoApp.sendSocket.get(intent.getIntExtra("sender", -1));
-				Log.i("log", "Write to " + intent.getIntExtra("sender", -1) + " MSG: " + type);
+				Log.i("log", "Write to " + sender + " MSG: " + type);
 				sc.write(ByteBuffer.wrap(msgByte));
+			} catch (ClosedChannelException e) {
+				SimpleDynamoApp.sendSocket.put(sender, null);
+				e.printStackTrace();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

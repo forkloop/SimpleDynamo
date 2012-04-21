@@ -454,9 +454,17 @@ public class ListenService extends IntentService {
 							ObjectInputStream ois = new ObjectInputStream(bis);
 							recMsg = (RecoveryMsg) ois.readObject();
 							if (recMsg.originalMsg != null) {
+							//	Set<String> keys = recMsg.originalMsg.keySet();
+							//	for (String s : keys) {
+							//		DynamoProvider.myData.put(s, recMsg.originalMsg.get(s));
+							//	}
 								DynamoProvider.myData = recMsg.originalMsg;
 							}
 							if (recMsg.replicateMsg != null) {
+							//	Set<String> keys = recMsg.replicateMsg.keySet();
+							//	for (String s : keys) {
+							//		DynamoProvider.peerData.get(i).put(s, recMsg.replicateMsg.get(s));
+							//	}
 								DynamoProvider.peerData.put(i, recMsg.replicateMsg);
 							}
 							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));

@@ -2,6 +2,7 @@ package edu.buffalo.cse.cse486_586.simpledynamo;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -156,6 +157,9 @@ public class DynamoProvider extends ContentProvider {
 						byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
 						try {
 							sc.write(ByteBuffer.wrap(msgByte));
+						} catch (ClosedChannelException e) {
+							SimpleDynamoApp.sendSocket.put(succ[x], null);
+							e.printStackTrace();
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -179,6 +183,9 @@ public class DynamoProvider extends ContentProvider {
 						synchronized (lock) {
 							lock.wait(300);	/* wait for ack */
 						}
+					} catch (ClosedChannelException e) {
+						SimpleDynamoApp.sendSocket.put(pid, null);
+						e.printStackTrace();
 					} catch (IOException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
@@ -187,14 +194,19 @@ public class DynamoProvider extends ContentProvider {
 				}
 				/* coordinator dead, send to its FIRST successor */
 				if ( rm == null ) {
-					SimpleDynamoApp.sendSocket.put(pid, null);
+				//	SimpleDynamoApp.sendSocket.put(pid, null);
 					Log.i("log", "Coordinator " + pid + " is DEAD");
 					if ( succ[0] != id ) {
 						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
-						try {
-							sc.write(ByteBuffer.wrap(msgByte));
-						} catch (IOException e) {
-							e.printStackTrace();
+						if (sc != null) {
+							try {
+								sc.write(ByteBuffer.wrap(msgByte));
+							} catch (ClosedChannelException e) {
+								SimpleDynamoApp.sendSocket.put(succ[0], null);
+								e.printStackTrace();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
 						}
 					}
 					else {
@@ -276,16 +288,25 @@ public class DynamoProvider extends ContentProvider {
 				getQ.put(key, 1);
 				/* Replicate inquiry */
 				for ( int x=0; x<succ.length; x++) {
-					ReplicateMsg repMsg = new ReplicateMsg();
-					repMsg.key = key;
-					repMsg.type = 'g';
-					repMsg.sender = id;
-					repMsg.owner = pid;
-					repMsg.asker = id;
-					byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
 					sc = SimpleDynamoApp.sendSocket.get(succ[x]);
-					Log.i("log", "Coordinator ask for quorum from: " + succ[x]);
-					sc.write(ByteBuffer.wrap(msgByte));
+					if (sc != null) {
+						ReplicateMsg repMsg = new ReplicateMsg();
+						repMsg.key = key;
+						repMsg.type = 'g';
+						repMsg.sender = id;
+						repMsg.owner = pid;
+						repMsg.asker = id;
+						byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
+						try {
+							Log.i("log", "Coordinator ask for quorum from: " + succ[x]);
+							sc.write(ByteBuffer.wrap(msgByte));
+						} catch (ClosedChannelException e) {
+							SimpleDynamoApp.sendSocket.put(succ[x], null);
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
 				}
 				/* wait for quorum */
 				synchronized(lock) {
@@ -309,12 +330,21 @@ public class DynamoProvider extends ContentProvider {
 				inqMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(inqMsg);
 				sc = SimpleDynamoApp.sendSocket.get(pid);
-				Log.i("log", "Send inquiry to coordinator: " + pid);
-				sc.write(ByteBuffer.wrap(msgByte));
-				
-				synchronized (lock) {
-					lock.wait(500);
+				if (sc != null) {
+					try {
+						Log.i("log", "Send inquiry to coordinator: " + pid);
+						sc.write(ByteBuffer.wrap(msgByte));
+						synchronized (lock) {
+							lock.wait(500);
+						}
+					} catch (ClosedChannelException e) {
+						SimpleDynamoApp.sendSocket.put(pid, null);
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
+				
 				if ( rm != null ) {
 					MatrixCursor mc = new MatrixCursor(SCHEMA);
 					String[] v = {rm.key, rm.value};
@@ -349,7 +379,16 @@ public class DynamoProvider extends ContentProvider {
 					}
 					else {
 						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
-						sc.write(ByteBuffer.wrap(msgByte));
+						if (sc != null) {
+							try {
+								sc.write(ByteBuffer.wrap(msgByte));
+							} catch (ClosedChannelException e) {
+								SimpleDynamoApp.sendSocket.put(succ[0], null);
+								e.printStackTrace();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
 						synchronized (lock) {
 							lock.wait();
 						}
@@ -366,13 +405,14 @@ public class DynamoProvider extends ContentProvider {
 			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 		return null;
 	}
+	
+	
+	
 	
 	
 	
