@@ -134,7 +134,7 @@ public class ListenService extends IntentService {
 							SocketChannel sc = (SocketChannel) key.channel();
 							ByteBuffer bb = ByteBuffer.allocate(1000);	// Hope this is enough...
 							sc.read(bb);
-							byte[] bt = bb.array();							
+							byte[] bt = bb.array();						
 							ByteArrayInputStream bis = new ByteArrayInputStream(bt);
 							ObjectInputStream ois = new ObjectInputStream(bis);
 							msg = ois.readObject();
@@ -284,7 +284,7 @@ public class ListenService extends IntentService {
 								SimpleDynamoApp.sendSocket.put(joinMsg.sender, sc);
 								Intent recIntent = new Intent(this, SendService.class);
 								
-								recIntent.putExtra("rec", "@"+myId);
+							//	recIntent.putExtra("rec", "@"+myId);
 								recIntent.putExtra("sender", joinMsg.sender);
 								recIntent.putExtra("type", SimpleDynamoApp.REC_MSG);
 								startService(recIntent);
@@ -444,9 +444,15 @@ public class ListenService extends IntentService {
 							ByteArrayInputStream bis = new ByteArrayInputStream(bt);
 							ObjectInputStream ois = new ObjectInputStream(bis);
 							recMsg = (RecoveryMsg) ois.readObject();
-							Log.i("log", "RecoveryMsg " + recMsg.rec);
+							if (recMsg.originalMsg != null) {
+								DynamoProvider.myData = recMsg.originalMsg;
+							}
+							if (recMsg.replicateMsg != null) {
+								DynamoProvider.peerData.put(i, recMsg.replicateMsg);
+							}
 							sc.register(SimpleDynamoApp.selector, (SelectionKey.OP_READ));
 							SimpleDynamoApp.sendSocket.put(i, sc);
+							Log.i("log", "# of connection: " + SimpleDynamoApp.sendSocket.size());
 						} catch (ClassNotFoundException e) {
 							e.printStackTrace();
 						} catch (IOException e) {

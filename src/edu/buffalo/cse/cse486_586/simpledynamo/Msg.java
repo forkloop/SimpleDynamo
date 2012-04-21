@@ -1,6 +1,7 @@
 package edu.buffalo.cse.cse486_586.simpledynamo;
 
 import java.io.Serializable;
+import java.util.Map;
 
 
 /**
@@ -77,7 +78,12 @@ class QuorumMsg implements Serializable {
 
 class RecoveryMsg implements Serializable {
 
-	String rec;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -819367622792496750L;
+	Map<String, String> originalMsg;
+	Map<String, String> replicateMsg;
 }
 
 class ConfirmMsg implements Serializable {

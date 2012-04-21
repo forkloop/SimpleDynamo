@@ -139,6 +139,7 @@ public class DynamoProvider extends ContentProvider {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
 			int[] succ = SimpleDynamoApp.getSuccessor(pid);
+			
 			if ( pid == id ) {
 				myTmp.put(key, (String) values.get("provider_value"));
 				putQ.put(key, 1);
