@@ -134,6 +134,7 @@ public class DynamoProvider extends ContentProvider {
 		String key = (String) values.get("provider_key");
 		Log.i("log", "Insert provider_key:" + key);
 		String keyHash;
+		
 		try {
 			keyHash = SimpleDynamoApp.genHash(key);
 			pid = SimpleDynamoApp.checkRange(keyHash);
@@ -143,23 +144,26 @@ public class DynamoProvider extends ContentProvider {
 				putQ.put(key, 1);
 				/* Replicate insert */
 				for ( int x=0; x<succ.length; x++ ) {
-					Intent repIntent = new Intent(getContext().getApplicationContext(), SendService.class);
-					repIntent.putExtra("key", key);
-					repIntent.putExtra("value", (String) values.get("provider_value"));
-					/* ``sender" is actually receiver HECK */
-					repIntent.putExtra("sender", succ[x]);
-					repIntent.putExtra("owner", pid);
-					repIntent.putExtra("action", 'p');
-					repIntent.putExtra("type", SimpleDynamoApp.REP_MSG);
-					getContext().getApplicationContext().startService(repIntent);
-				}
-			// FIXME  ? BLOCK ?
-			//	synchronized (lock) {
-			//		
-			//	}
+					sc = SimpleDynamoApp.sendSocket.get(succ[x]);
+					if (sc != null) {
+						ReplicateMsg repMsg = new ReplicateMsg();
+						repMsg.key = key;
+						repMsg.value = (String) values.getAsString("provider_value");
+						repMsg.type = 'p';
+						repMsg.owner = pid;
+						repMsg.sender = id;
+						byte[] msgByte = SimpleDynamoApp.getMsgStream(repMsg);
+						try {
+							sc.write(ByteBuffer.wrap(msgByte));
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				} // FIXME  ? BLOCK ?
 			}
 			else {
 				rm = null;
+				
 				InsertMsg insMsg = new InsertMsg();
 				insMsg.key = (String) values.get("provider_key");
 				insMsg.value = (String) values.get("provider_value");
@@ -167,20 +171,30 @@ public class DynamoProvider extends ContentProvider {
 				insMsg.sender = id;
 				byte[] msgByte = SimpleDynamoApp.getMsgStream(insMsg);
 				sc = SimpleDynamoApp.sendSocket.get(pid);
-				Log.i("log", "Write to " + pid + " : " + sc.isConnected());
-				sc.write(ByteBuffer.wrap(msgByte));
-				
-			//	flag = false;
-				synchronized (lock) {
-					/* wait for ack */
-					lock.wait(300);
+				if (sc != null) {
+					try {
+						sc.write(ByteBuffer.wrap(msgByte));
+						Log.i("log", "Write to " + pid + " : " + sc.isConnected());
+						synchronized (lock) {
+							lock.wait(300);	/* wait for ack */
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 				}
 				/* coordinator dead, send to its FIRST successor */
 				if ( rm == null ) {
+				//	SimpleDynamoApp.sendSocket.put(pid, null);
 					Log.i("log", "Coordinator " + pid + " is DEAD");
 					if ( succ[0] != id ) {
 						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
-						sc.write(ByteBuffer.wrap(msgByte));
+						try {
+							sc.write(ByteBuffer.wrap(msgByte));
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
 					}
 					else {
 						Map<String, String>t = new HashMap<String, String>();
@@ -198,14 +212,9 @@ public class DynamoProvider extends ContentProvider {
 							getContext().getApplicationContext().startService(repIntent);
 						}
 					}
-				}
-				//FIXME again, BLOCK ?
+				} //FIXME again ? BLOCK ?
 			}
 		} catch(NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 		return null;
