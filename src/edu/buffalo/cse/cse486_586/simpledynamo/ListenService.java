@@ -6,6 +6,7 @@ package edu.buffalo.cse.cse486_586.simpledynamo;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.StreamCorruptedException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
@@ -129,18 +130,26 @@ public class ListenService extends IntentService {
 						
 						/* new message */
 						else if ( (key.readyOps() & SelectionKey.OP_READ) == SelectionKey.OP_READ ) {
+							
 							Log.i("log", "@@@NEW MSG@@@");
 							Object msg = null;
+							String msg_type = "wtf";
 							SocketChannel sc = (SocketChannel) key.channel();
 							ByteBuffer bb = ByteBuffer.allocate(1000);	// Hope this is enough...
 							sc.read(bb);
-							byte[] bt = bb.array();						
-							ByteArrayInputStream bis = new ByteArrayInputStream(bt);
-							ObjectInputStream ois = new ObjectInputStream(bis);
-							msg = ois.readObject();
-							String msg_type = msg.getClass().getName();
-							Log.i("log", "Receive a " + msg_type);
-							
+							byte[] bt = bb.array();
+							try {
+								ByteArrayInputStream bis = new ByteArrayInputStream(bt);
+								ObjectInputStream ois = new ObjectInputStream(bis);
+								msg = ois.readObject();
+								msg_type = msg.getClass().getName();
+								Log.i("log", "Receive a " + msg_type);
+							} catch (StreamCorruptedException e) {
+								Log.i("log", "ByteBuffer: " + bb.toString());
+								sc.close();
+								e.printStackTrace();
+							}
+
 							
 							if (msg_type.equals("edu.buffalo.cse.cse486_586.simpledynamo.InsertMsg")) {
 								

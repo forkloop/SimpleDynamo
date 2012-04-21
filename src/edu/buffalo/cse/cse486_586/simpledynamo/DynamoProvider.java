@@ -187,7 +187,7 @@ public class DynamoProvider extends ContentProvider {
 				}
 				/* coordinator dead, send to its FIRST successor */
 				if ( rm == null ) {
-				//	SimpleDynamoApp.sendSocket.put(pid, null);
+					SimpleDynamoApp.sendSocket.put(pid, null);
 					Log.i("log", "Coordinator " + pid + " is DEAD");
 					if ( succ[0] != id ) {
 						sc = SimpleDynamoApp.sendSocket.get(succ[0]);
