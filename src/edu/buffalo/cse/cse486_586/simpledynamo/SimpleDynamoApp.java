@@ -31,7 +31,7 @@ public class SimpleDynamoApp extends Application {
 	static String myIdHash;
 	static int emulatorNum=3;
 	static int repNum=3;
-	static int testNum=5;
+	static int testNum=10;
 	static List<Integer> succId;
 	
 	static	final int INS_MSG = 1;
@@ -77,7 +77,17 @@ public class SimpleDynamoApp extends Application {
 		int[] ret = {succId.get((idx+1)%succId.size()), succId.get((idx+2)%succId.size())};
 		return ret;
 	}
-	
+
+
+	static int[] getPredecessor(int id) {
+		
+		/* succId updated by ListenService */
+		int N = succId.size();
+		int idx = succId.indexOf(id);
+		int[] ret = {succId.get((idx-1+N)%N), succId.get((idx-2+N)%N)};
+		return ret;
+	}
+
 	
 	static byte[] getMsgStream(Object msg) {
 		

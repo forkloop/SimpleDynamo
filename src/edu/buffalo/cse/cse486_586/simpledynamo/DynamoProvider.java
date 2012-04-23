@@ -111,12 +111,12 @@ public class DynamoProvider extends ContentProvider {
 		myTmp = new HashMap<String, String>();
 		peerTmp = new HashMap<Integer, Map<String, String>>();
 
-		int[] succ = SimpleDynamoApp.getSuccessor(id);
-		for ( int x=0; x<succ.length; x++ ) {
+		int[] pred = SimpleDynamoApp.getPredecessor(id);
+		for ( int x=0; x<pred.length; x++ ) {
 			Map<String, String> t = new HashMap<String, String>();
-			peerData.put(succ[x], t);
+			peerData.put(pred[x], t);
 			Map<String, String> tt = new HashMap<String, String>();
-			peerTmp.put(succ[x], tt);
+			peerTmp.put(pred[x], tt);
 		}
 		
 		/* start */
@@ -256,8 +256,8 @@ public class DynamoProvider extends ContentProvider {
 				inserted.put("provider_value",v[1]);
 			//	db.insert(MSG_TABLE_NAME, null, inserted);
 			}
-			Set<Integer> succ = peerData.keySet();
-			for ( int x : succ ) {
+			Set<Integer> pred = peerData.keySet();
+			for ( int x : pred ) {
 				Map<String, String> data = peerData.get(x);
 				String[] v1 = {"@"+x, ""};
 				mc.addRow(v1);

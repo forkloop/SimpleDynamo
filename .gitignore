@@ -6,3 +6,4 @@ assets/*
 *.apk
 .project
 .classpath
+.settings/*
